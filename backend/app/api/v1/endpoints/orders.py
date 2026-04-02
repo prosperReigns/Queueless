@@ -9,7 +9,12 @@ from app.api.deps import get_current_active_user, get_db, require_roles
 from app.models.order import OrderStatus
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
-from app.services.order_service import create_order, get_order_by_id, update_order_status
+from app.services.order_service import (
+    OrderStatusTransitionActor,
+    create_order,
+    get_order_by_id,
+    update_order_status,
+)
 from app.services.store_service import get_store_by_id
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -67,7 +72,12 @@ def update_order_status_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
 
     try:
-        updated = update_order_status(db, order, payload.status, actor="merchant")
+        updated = update_order_status(
+            db,
+            order,
+            payload.status,
+            actor=OrderStatusTransitionActor.MERCHANT,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return OrderResponse.model_validate(updated)
