@@ -17,7 +17,6 @@ from app.models.order import Order, OrderStatus
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.user import User
 from app.services.order_service import update_order_status
-from app.services.websocket_service import publish_customer_status_update
 from app.tasks.notifications import queue_order_notification
 
 logger = logging.getLogger(__name__)
