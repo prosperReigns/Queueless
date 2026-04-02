@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AuthContext } from './auth-context'
+import { AuthContext } from './AuthContextValue'
 import type { AuthState, AuthUser } from '../types/auth'
 
 const TOKEN_KEY = 'queueless_token'
