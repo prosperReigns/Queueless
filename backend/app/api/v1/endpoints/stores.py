@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_active_user, get_db
-from app.models.user import User, UserRole
+from app.api.deps import get_current_active_merchant, get_db
+from app.models.user import User
 from app.schemas.store import StoreCreate, StoreResponse, StoreUpdate
 from app.services.store_service import (
     create_store,
@@ -17,14 +17,6 @@ from app.services.store_service import (
 )
 
 router = APIRouter(prefix="/stores", tags=["stores"])
-
-
-def _ensure_merchant(user: User) -> None:
-    if user.role != UserRole.MERCHANT:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only merchants can manage stores.",
-        )
 
 
 @router.get("", response_model=list[StoreResponse])
@@ -38,10 +30,9 @@ def get_stores(db: Session = Depends(get_db)) -> list[StoreResponse]:
 def create_store_endpoint(
     payload: StoreCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_merchant),
 ) -> StoreResponse:
     """Create a store for the authenticated merchant."""
-    _ensure_merchant(current_user)
     store = create_store(db, payload, current_user.id)
     return StoreResponse.model_validate(store)
 
@@ -60,10 +51,9 @@ def update_store_endpoint(
     store_id: int,
     payload: StoreUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_merchant),
 ) -> StoreResponse:
     """Update an owned store."""
-    _ensure_merchant(current_user)
     store = get_store_by_id(db, store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
@@ -80,10 +70,9 @@ def update_store_endpoint(
 def delete_store_endpoint(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_merchant),
 ) -> Response:
     """Delete an owned store."""
-    _ensure_merchant(current_user)
     store = get_store_by_id(db, store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
