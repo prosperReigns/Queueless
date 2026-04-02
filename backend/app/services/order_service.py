@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from enum import Enum
 import logging
 import uuid
 
@@ -51,6 +52,32 @@ def get_order_by_id(db: Session, order_id: int) -> Order | None:
     """Return an order by id with items eagerly loaded."""
     stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
     return db.scalar(stmt)
+
+
+def validate_order_status_transition(
+    order: Order,
+    status: OrderStatus,
+    *,
+    source: OrderStatusTransitionSource = OrderStatusTransitionSource.MERCHANT,
+) -> None:
+    """Validate an order status transition for a specific transition source."""
+    allowed_next_statuses = _ALLOWED_SOURCE_TRANSITIONS.get(source, {}).get(order.status, set())
+    if status not in allowed_next_statuses:
+        logger.warning(
+            "Order status update failed: invalid transition.",
+            extra={
+                "event": "order_status_update_failed",
+                "order_id": order.id,
+                "from_status": order.status.value,
+                "to_status": status.value,
+                "source": source.value,
+                "reason": "invalid_transition",
+            },
+        )
+        raise ValueError(
+            f"Invalid order status transition for {source.value}: "
+            f"{order.status.value} -> {status.value}."
+        )
 
 
 def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order:

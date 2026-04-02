@@ -289,10 +289,11 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
         )
         return (True, "payment_already_failed")
 
+    order = db.get(Order, payment.order_id)
+
     payment.status = PaymentStatus.SUCCESS
     db.add(payment)
 
-    order = db.get(Order, payment.order_id)
     if order is not None and order.status == OrderStatus.PENDING:
         update_order_status(
             db,
