@@ -2,8 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field, ValidationInfo
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,7 +38,12 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str | None = None
     CELERY_RESULT_BACKEND: str | None = None
     CELERY_TASK_ALWAYS_EAGER: bool = False
-    ORDER_EXPIRY_MINUTES: int = Field(default=10, ge=1, le=1440)
+    ORDER_EXPIRY_MINUTES: int = Field(
+        default=10,
+        ge=1,
+        le=1440,
+        description="Unpaid order validity window before automatic cancellation (1-1440 minutes).",
+    )
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -49,18 +53,6 @@ class Settings(BaseSettings):
         if not value.startswith(allowed_prefixes):
             raise ValueError("DATABASE_URL must use a PostgreSQL scheme")
         return value
-
-    @field_validator("CELERY_BROKER_URL", "CELERY_RESULT_BACKEND", mode="before")
-    @classmethod
-    def default_celery_redis_urls(cls, value: str | None, info: ValidationInfo) -> str | None:
-        """Fallback Celery broker/backend URLs to REDIS_URL when not provided."""
-        if value:
-            return value
-        redis_url = info.data.get("REDIS_URL") if info.data else None
-        if isinstance(redis_url, str) and redis_url:
-            return redis_url
-        return value
-
 
 @lru_cache
 def get_settings() -> Settings:

@@ -12,6 +12,20 @@ from app.models.order import Order, OrderStatus
 from app.tasks.celery_app import celery_app
 
 settings = get_settings()
+ORDER_EXPIRY_BATCH_SIZE = 500
+SECONDS_PER_MINUTE = 60
+
+
+def _expiry_cutoff_utc() -> datetime:
+    """Return UTC cutoff datetime for unpaid order expiry."""
+    return datetime.now(timezone.utc) - timedelta(minutes=settings.ORDER_EXPIRY_MINUTES)
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Normalize datetime to UTC-aware."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 @celery_app.task(
@@ -24,17 +38,14 @@ settings = get_settings()
 )
 def expire_unpaid_order_task(self, order_id: int) -> str:  # noqa: ARG001
     """Cancel a pending order that remains unpaid past expiry window."""
-    expires_before = datetime.now(timezone.utc) - timedelta(minutes=settings.ORDER_EXPIRY_MINUTES)
+    expires_before = _expiry_cutoff_utc()
     with SessionLocal() as db:
         order = db.get(Order, order_id)
         if order is None:
             return "not_found"
         if order.status != OrderStatus.PENDING:
             return "not_pending"
-        created_at = order.created_at
-        if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
-        if created_at > expires_before:
+        if _as_utc(order.created_at) > expires_before:
             return "not_expired_yet"
 
         order.status = OrderStatus.CANCELLED
@@ -53,21 +64,31 @@ def expire_unpaid_order_task(self, order_id: int) -> str:  # noqa: ARG001
 )
 def expire_pending_orders_task(self) -> int:  # noqa: ARG001
     """Bulk-cancel all pending unpaid orders older than expiry window."""
-    expires_before = datetime.now(timezone.utc) - timedelta(minutes=settings.ORDER_EXPIRY_MINUTES)
+    expires_before = _expiry_cutoff_utc()
     expired_count = 0
-    with SessionLocal() as db:
-        stmt = select(Order).where(Order.status == OrderStatus.PENDING, Order.created_at <= expires_before)
-        stale_orders = list(db.scalars(stmt).all())
-        for order in stale_orders:
-            order.status = OrderStatus.CANCELLED
-            db.add(order)
-            expired_count += 1
-        if expired_count:
+    last_seen_id = 0
+    while True:
+        with SessionLocal() as db:
+            stmt = (
+                select(Order)
+                .where(Order.status == OrderStatus.PENDING, Order.id > last_seen_id)
+                .order_by(Order.id)
+                .limit(ORDER_EXPIRY_BATCH_SIZE)
+            )
+            pending_orders = db.scalars(stmt).all()
+            if not pending_orders:
+                break
+            for order in pending_orders:
+                if _as_utc(order.created_at) <= expires_before:
+                    order.status = OrderStatus.CANCELLED
+                    db.add(order)
+                    expired_count += 1
+                last_seen_id = order.id
             db.commit()
     return expired_count
 
 
 def schedule_order_expiry(order_id: int) -> None:
     """Queue delayed task to expire an unpaid order after configured minutes."""
-    delay_seconds = settings.ORDER_EXPIRY_MINUTES * 60
+    delay_seconds = settings.ORDER_EXPIRY_MINUTES * SECONDS_PER_MINUTE
     expire_unpaid_order_task.apply_async(args=[order_id], countdown=delay_seconds)
