@@ -1,0 +1,1 @@
+"""Product endpoint placeholders."""

@@ -1,0 +1,1 @@
+"""Payment endpoint placeholders."""

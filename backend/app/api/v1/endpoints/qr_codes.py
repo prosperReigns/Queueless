@@ -1,0 +1,1 @@
+"""QR code endpoint placeholders."""

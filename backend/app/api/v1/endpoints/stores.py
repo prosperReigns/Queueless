@@ -1,0 +1,1 @@
+"""Store endpoint placeholders."""
