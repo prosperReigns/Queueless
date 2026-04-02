@@ -18,6 +18,10 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "Queueless API"
     API_V1_PREFIX: str = "/api/v1"
+    JWT_SECRET_KEY: str = Field(..., min_length=32, description="Signing key for JWT tokens")
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     DATABASE_URL: str = Field(
         ...,
         description="Required PostgreSQL SQLAlchemy URL, e.g. postgresql+psycopg2://user:pass@host:5432/db",
