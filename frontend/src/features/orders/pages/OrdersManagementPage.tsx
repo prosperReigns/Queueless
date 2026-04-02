@@ -29,10 +29,8 @@ export function OrdersManagementPage() {
 
     return subscribeToOrderUpdates({
       token,
-      onOrderEvent: (event) => {
-        if (event.type === 'new_order') {
-          void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })
-        }
+      onOrderEvent: () => {
+        void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })
       },
       onError: () => {
         void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })

@@ -38,7 +38,6 @@ export function OrderConfirmationPage() {
       onOrderEvent: (event) => {
         if (event.type === 'order_status_update' && event.order_id === parsedOrderId) {
           void queryClient.invalidateQueries({ queryKey: ['order', parsedOrderId] })
-          void queryClient.invalidateQueries({ queryKey: ['order-qr', parsedOrderId] })
         }
       },
       onError: () => {

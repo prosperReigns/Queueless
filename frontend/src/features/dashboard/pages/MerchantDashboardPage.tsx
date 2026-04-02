@@ -29,10 +29,8 @@ export function MerchantDashboardPage() {
 
     return subscribeToOrderUpdates({
       token,
-      onOrderEvent: (event) => {
-        if (event.type === 'new_order') {
-          void queryClient.invalidateQueries({ queryKey: ['merchant-dashboard-orders'] })
-        }
+      onOrderEvent: () => {
+        void queryClient.invalidateQueries({ queryKey: ['merchant-dashboard-orders'] })
       },
       onError: () => {
         void queryClient.invalidateQueries({ queryKey: ['merchant-dashboard-orders'] })
