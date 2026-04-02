@@ -143,8 +143,7 @@ def update_order_status(
     actor: str,
 ) -> Order:
     """Update an order status if the actor and transition are valid."""
-    actor_transitions = _ALLOWED_STATUS_TRANSITIONS_BY_ACTOR.get(actor)
-    if actor_transitions is None:
+    if actor not in _ALLOWED_STATUS_TRANSITIONS_BY_ACTOR:
         logger.warning(
             "Order status update failed: unknown actor.",
             extra={
@@ -155,6 +154,7 @@ def update_order_status(
             },
         )
         raise ValueError(f"Unsupported order status actor: {actor}.")
+    actor_transitions = _ALLOWED_STATUS_TRANSITIONS_BY_ACTOR[actor]
 
     if order.status == status:
         logger.info(
