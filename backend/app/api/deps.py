@@ -76,10 +76,21 @@ def require_roles(*allowed_roles: UserRole) -> Callable[..., User]:
     return _role_dependency
 
 
+def get_current_active_merchant(current_user: User = Depends(get_current_active_user)) -> User:
+    """Ensure current user is an active merchant."""
+    if current_user.role != UserRole.MERCHANT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only merchants can perform this action.",
+        )
+    return current_user
+
+
 __all__ = [
     "get_db",
     "oauth2_scheme",
     "get_current_user",
     "get_current_active_user",
+    "get_current_active_merchant",
     "require_roles",
 ]
