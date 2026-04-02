@@ -1,5 +1,11 @@
 import { apiClient } from './client'
-import type { OrderCreateRequest, OrderResponse, PaymentInitiateResponse, QRCodeResponse } from '../types/orders'
+import type {
+  OrderCreateRequest,
+  OrderResponse,
+  OrderStatusUpdateRequest,
+  PaymentInitiateResponse,
+  QRCodeResponse,
+} from '../types/orders'
 
 export async function createOrderRequest(payload: OrderCreateRequest): Promise<OrderResponse> {
   const { data } = await apiClient.post<OrderResponse>('/orders', payload)
@@ -8,6 +14,24 @@ export async function createOrderRequest(payload: OrderCreateRequest): Promise<O
 
 export async function getOrderRequest(orderId: number): Promise<OrderResponse> {
   const { data } = await apiClient.get<OrderResponse>(`/orders/${orderId}`)
+  return data
+}
+
+export async function listMerchantOrdersRequest(maxOrderId = 25): Promise<OrderResponse[]> {
+  const orderIds = Array.from({ length: maxOrderId }, (_, index) => index + 1)
+  const responses = await Promise.allSettled(orderIds.map((id) => getOrderRequest(id)))
+
+  return responses
+    .filter((result): result is PromiseFulfilledResult<OrderResponse> => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+export async function updateOrderStatusRequest(
+  orderId: number,
+  payload: OrderStatusUpdateRequest,
+): Promise<OrderResponse> {
+  const { data } = await apiClient.patch<OrderResponse>(`/orders/${orderId}/status`, payload)
   return data
 }
 

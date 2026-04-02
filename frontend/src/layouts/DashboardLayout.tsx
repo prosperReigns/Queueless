@@ -3,9 +3,9 @@ import { Sidebar } from '../components/navigation/Sidebar'
 
 export function DashboardLayout() {
   return (
-    <div>
+    <div className="dashboard-shell">
       <Sidebar />
-      <main>
+      <main className="dashboard-main">
         <Outlet />
       </main>
     </div>
