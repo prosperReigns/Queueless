@@ -10,7 +10,7 @@ import type { OrderStatus } from '../../../types/orders'
 import { NEXT_STATUS_OPTIONS } from '../orderStatus'
 import { ORDER_STATUS_LABELS } from '../orderStatus'
 
-const WEBSOCKET_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000/api/v1/ws/orders'
+const ORDERS_WEBSOCKET_URL_PATTERN = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000/api/v1/ws/orders'
 
 export function OrdersManagementPage() {
   const queryClient = useQueryClient()
@@ -29,7 +29,7 @@ export function OrdersManagementPage() {
       return undefined
     }
 
-    const socketUrl = `${WEBSOCKET_BASE_URL}?token=${encodeURIComponent(token)}`
+    const socketUrl = `${ORDERS_WEBSOCKET_URL_PATTERN}?token=${encodeURIComponent(token)}`
     const socket = createOrderUpdatesSocket(socketUrl)
 
     socket.onmessage = () => {

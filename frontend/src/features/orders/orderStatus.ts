@@ -16,12 +16,18 @@ export const ORDER_STATUS_OPTIONS: OrderStatusOption[] = [
 ]
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = ORDER_STATUS_OPTIONS.reduce(
-  (acc, option) => ({ ...acc, [option.value]: option.label }),
+  (acc, option) => {
+    acc[option.value] = option.label
+    return acc
+  },
   {} as Record<OrderStatus, string>,
 )
 
 export const ORDER_STATUS_CLASSES: Record<OrderStatus, string> = ORDER_STATUS_OPTIONS.reduce(
-  (acc, option) => ({ ...acc, [option.value]: option.className }),
+  (acc, option) => {
+    acc[option.value] = option.className
+    return acc
+  },
   {} as Record<OrderStatus, string>,
 )
 

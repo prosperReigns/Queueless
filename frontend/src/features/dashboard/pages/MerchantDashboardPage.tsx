@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listMerchantOrdersRequest } from '../../../api/orders'
 import { ORDER_STATUS_LABELS } from '../../orders/orderStatus'
+import type { OrderStatus } from '../../../types/orders'
+
+const MAX_LATEST_ORDERS_DISPLAY = 5
 
 export function MerchantDashboardPage() {
   const ordersQuery = useQuery({
@@ -11,15 +14,23 @@ export function MerchantDashboardPage() {
   })
 
   const orders = ordersQuery.data ?? []
+  const countsByStatus = orders.reduce<Record<OrderStatus, number>>(
+    (acc, order) => {
+      acc[order.status] += 1
+      return acc
+    },
+    { pending: 0, paid: 0, preparing: 0, ready: 0, completed: 0, cancelled: 0 },
+  )
+
   const totals = {
     all: orders.length,
-    pending: orders.filter((order) => order.status === 'pending').length,
-    preparing: orders.filter((order) => order.status === 'preparing').length,
-    ready: orders.filter((order) => order.status === 'ready').length,
-    completed: orders.filter((order) => order.status === 'completed').length,
+    pending: countsByStatus.pending,
+    preparing: countsByStatus.preparing,
+    ready: countsByStatus.ready,
+    completed: countsByStatus.completed,
   }
 
-  const latestOrders = orders.slice(0, 5)
+  const latestOrders = orders.slice(0, MAX_LATEST_ORDERS_DISPLAY)
 
   return (
     <section className="page-container merchant-dashboard-page">

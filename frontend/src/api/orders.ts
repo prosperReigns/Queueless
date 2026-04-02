@@ -7,6 +7,9 @@ import type {
   QRCodeResponse,
 } from '../types/orders'
 
+const sortOrdersByCreatedAtDesc = (orders: OrderResponse[]) =>
+  [...orders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
 export async function createOrderRequest(payload: OrderCreateRequest): Promise<OrderResponse> {
   const { data } = await apiClient.post<OrderResponse>('/orders', payload)
   return data
@@ -17,14 +20,18 @@ export async function getOrderRequest(orderId: number): Promise<OrderResponse> {
   return data
 }
 
-export async function listMerchantOrdersRequest(maxOrderId = 25): Promise<OrderResponse[]> {
-  const orderIds = Array.from({ length: maxOrderId }, (_, index) => index + 1)
-  const responses = await Promise.allSettled(orderIds.map((id) => getOrderRequest(id)))
-
-  return responses
-    .filter((result): result is PromiseFulfilledResult<OrderResponse> => result.status === 'fulfilled')
-    .map((result) => result.value)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+export async function listMerchantOrdersRequest(maxFallbackOrderId = 25): Promise<OrderResponse[]> {
+  try {
+    const { data } = await apiClient.get<OrderResponse[]>('/orders')
+    return sortOrdersByCreatedAtDesc(data)
+  } catch {
+    const orderIds = Array.from({ length: maxFallbackOrderId }, (_, index) => index + 1)
+    const responses = await Promise.allSettled(orderIds.map((id) => getOrderRequest(id)))
+    const orders = responses
+      .filter((result): result is PromiseFulfilledResult<OrderResponse> => result.status === 'fulfilled')
+      .map((result) => result.value)
+    return sortOrdersByCreatedAtDesc(orders)
+  }
 }
 
 export async function updateOrderStatusRequest(
