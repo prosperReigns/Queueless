@@ -27,16 +27,13 @@ def _serialize_order_payload(order: Order, event_type: str) -> dict[str, Any]:
     else:
         created_at_value = None
 
-    total_amount = order.total_amount
-    total_amount_value = str(total_amount)
-
     return {
         "type": event_type,
         "order_id": order.id,
         "store_id": order.store_id,
         "customer_id": str(order.user_id),
         "status": order.status.value,
-        "total_amount": total_amount_value,
+        "total_amount": str(order.total_amount),
         "created_at": created_at_value,
     }
 
@@ -94,7 +91,9 @@ class WebSocketConnectionManager:
         if merchant_id is None and customer_id is None:
             return
         if merchant_id is not None and customer_id is not None:
-            logger.warning("WebSocket broadcast called with both merchant_id and customer_id; ignoring.")
+            logger.warning(
+                "WebSocket broadcast called with both merchant_id and customer_id; skipping broadcast."
+            )
             return
 
         async with self._lock:
@@ -129,6 +128,7 @@ class WebSocketConnectionManager:
 
 
 connection_manager = WebSocketConnectionManager()
+_PENDING_NOTIFICATION_TASKS: set[asyncio.Task[None]] = set()
 
 
 def _dispatch_async(
@@ -142,10 +142,30 @@ def _dispatch_async(
         try:
             anyio.from_thread.run(callback, *args)
         except RuntimeError:
-            logger.warning("Unable to dispatch websocket notification from thread context.")
+            logger.warning(
+                "Unable to dispatch websocket notification from thread context for callback=%s.",
+                getattr(callback, "__name__", str(callback)),
+            )
             return
         return
-    loop.create_task(callback(*args))
+    task = loop.create_task(callback(*args))
+    _PENDING_NOTIFICATION_TASKS.add(task)
+    task.add_done_callback(_cleanup_task)
+    task.add_done_callback(_log_task_exception)
+
+
+def _cleanup_task(task: asyncio.Task[None]) -> None:
+    """Remove completed background task from in-memory tracking."""
+    _PENDING_NOTIFICATION_TASKS.discard(task)
+
+
+def _log_task_exception(task: asyncio.Task[None]) -> None:
+    """Log exceptions raised by background websocket notification tasks."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.warning("Background websocket notification task failed.", exc_info=exc)
 
 
 def publish_merchant_new_order(merchant_id: uuid.UUID, order: Order) -> None:

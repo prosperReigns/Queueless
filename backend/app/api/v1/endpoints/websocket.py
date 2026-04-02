@@ -1,9 +1,7 @@
 """WebSocket endpoints for real-time order notifications."""
 
 from __future__ import annotations
-
-import asyncio
-import logging
+import uuid
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 from jose import JWTError
@@ -14,8 +12,6 @@ from app.services.auth_service import get_user_by_id
 from app.services.websocket_service import connection_manager
 
 router = APIRouter(tags=["websocket"])
-_WS_RECEIVE_TIMEOUT_SECONDS = 60
-logger = logging.getLogger(__name__)
 
 
 @router.websocket("/ws/orders")
@@ -37,14 +33,15 @@ async def order_notifications_websocket(
     if subject is None or token_type != "access":
         await websocket.close(code=close_code)
         return
+    try:
+        user_id = uuid.UUID(str(subject))
+    except (ValueError, TypeError):
+        await websocket.close(code=close_code)
+        return
 
     user = None
     with SessionLocal() as db:
-        try:
-            user = get_user_by_id(db, subject)
-        except (ValueError, TypeError):
-            logger.warning("WebSocket auth failed: invalid user subject in token.")
-            pass
+        user = get_user_by_id(db, user_id)
 
     if user is None or not user.is_active:
         await websocket.close(code=close_code)
@@ -55,18 +52,12 @@ async def order_notifications_websocket(
 
     await connection_manager.connect(websocket, user_id=user.id, role=user.role)
     try:
-        try:
-            while True:
-                # Read client frames to keep connection alive; only disconnect frames are acted upon.
-                message = await asyncio.wait_for(
-                    websocket.receive(),
-                    timeout=_WS_RECEIVE_TIMEOUT_SECONDS,
-                )
-                if message.get("type") == "websocket.disconnect":
-                    break
-        except asyncio.TimeoutError:
-            await websocket.close()
-        except WebSocketDisconnect:
-            pass
+        while True:
+            # Read client frames to keep connection alive; only disconnect frames are acted upon.
+            message = await websocket.receive()
+            if message.get("type") == "websocket.disconnect":
+                break
+    except WebSocketDisconnect:
+        pass
     finally:
         await connection_manager.disconnect(websocket, user_id=user.id, role=user.role)
