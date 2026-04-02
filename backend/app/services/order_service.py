@@ -13,6 +13,8 @@ from app.models.order_item import OrderItem
 from app.models.product import Product
 from app.models.store import Store
 from app.schemas.order import OrderCreate
+from app.tasks.notifications import queue_order_notification
+from app.tasks.orders import schedule_order_expiry
 
 _ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.PENDING: {OrderStatus.PAID, OrderStatus.CANCELLED},
@@ -72,6 +74,8 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     db.add(order)
     db.commit()
     db.refresh(order)
+    schedule_order_expiry(order.id)
+    queue_order_notification(order.id, "order_created")
     return order
 
 
@@ -90,4 +94,5 @@ def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order
     db.add(order)
     db.commit()
     db.refresh(order)
+    queue_order_notification(order.id, f"order_status_{order.status.value}")
     return order

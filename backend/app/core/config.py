@@ -2,8 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +34,16 @@ class Settings(BaseSettings):
         description="Paystack secret key used for transaction initialization and webhook verification",
     )
     PAYSTACK_BASE_URL: str = "https://api.paystack.co"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    CELERY_BROKER_URL: str | None = None
+    CELERY_RESULT_BACKEND: str | None = None
+    CELERY_TASK_ALWAYS_EAGER: bool = False
+    ORDER_EXPIRY_MINUTES: int = Field(
+        default=10,
+        ge=1,
+        le=1440,
+        description="Unpaid order validity window before automatic cancellation (1-1440 minutes).",
+    )
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -44,7 +53,6 @@ class Settings(BaseSettings):
         if not value.startswith(allowed_prefixes):
             raise ValueError("DATABASE_URL must use a PostgreSQL scheme")
         return value
-
 
 @lru_cache
 def get_settings() -> Settings:
