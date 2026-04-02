@@ -8,6 +8,7 @@ from app.schemas.payment import (
     PaymentResponse,
     PaymentWebhookRequest,
 )
+from app.schemas.qr_code import QRCodeResponse, QRCodeValidationRequest, QRCodeValidationResponse
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.schemas.store import StoreCreate, StoreResponse, StoreUpdate
 from app.schemas.token import LoginRequest, TokenPair
@@ -32,6 +33,9 @@ __all__ = [
     "PaymentInitiateResponse",
     "PaymentWebhookRequest",
     "PaymentResponse",
+    "QRCodeResponse",
+    "QRCodeValidationRequest",
+    "QRCodeValidationResponse",
     "LoginRequest",
     "TokenPair",
 ]
