@@ -87,7 +87,7 @@ def initialize_paystack_payment(
     except httpx.TimeoutException as exc:
         raise ValueError("Timed out while contacting payment provider.") from exc
     except httpx.HTTPError as exc:
-        raise ValueError(f"Failed contacting payment provider: {type(exc).__name__}.") from exc
+        raise ValueError("Failed to contact payment provider due to network error.") from exc
 
     if response.status_code >= 400:
         raise ValueError(
@@ -126,27 +126,29 @@ def verify_paystack_webhook_signature(raw_body: bytes, signature: str | None) ->
     return hmac.compare_digest(expected, signature)
 
 
-def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> bool:
-    """Process Paystack webhook event and update records idempotently."""
+def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, str]:
+    """Process webhook event idempotently and return (processed, reason)."""
     try:
         event = json.loads(raw_body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
-        return False
+        return (False, "invalid_payload")
     if event.get("event") != "charge.success":
-        return False
+        return (False, "unsupported_event")
 
     payload = event.get("data") or {}
     reference = payload.get("reference")
     if not reference:
-        return False
+        return (False, "missing_reference")
 
     payment = get_payment_by_reference(db, reference)
     if payment is None:
-        return False
+        return (False, "payment_not_found")
 
     # Idempotent: already processed.
     if payment.status == PaymentStatus.SUCCESS:
-        return True
+        return (True, "already_processed")
+    if payment.status == PaymentStatus.FAILED:
+        return (False, "payment_already_failed")
 
     payment.status = PaymentStatus.SUCCESS
     db.add(payment)
@@ -157,4 +159,4 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> bool:
         db.add(order)
 
     db.commit()
-    return True
+    return (True, "processed")
