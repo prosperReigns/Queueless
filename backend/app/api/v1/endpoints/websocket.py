@@ -19,7 +19,7 @@ async def order_notifications_websocket(
     websocket: WebSocket,
     token: str = Query(min_length=1),
 ) -> None:
-    """Subscribe authenticated customers/merchants to order event notifications."""
+    """Subscribe authenticated users to role-scoped order event notifications."""
     close_code = status.WS_1008_POLICY_VIOLATION
 
     try:
@@ -46,7 +46,7 @@ async def order_notifications_websocket(
     if user is None or not user.is_active:
         await websocket.close(code=close_code)
         return
-    if user.role not in {UserRole.MERCHANT, UserRole.CUSTOMER}:
+    if user.role not in {UserRole.ADMIN, UserRole.MERCHANT, UserRole.CUSTOMER}:
         await websocket.close(code=close_code)
         return
 

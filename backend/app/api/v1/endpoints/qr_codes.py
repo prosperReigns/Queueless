@@ -25,7 +25,9 @@ router = APIRouter(prefix="/qr-codes", tags=["qr-codes"])
 
 
 def _authorize_order_access(db: Session, current_user: User, order_user_id: object, order_store_id: int) -> None:
-    """Authorize access to a specific order for customer/merchant roles."""
+    """Authorize access to a specific order by role policy."""
+    if current_user.role == UserRole.ADMIN:
+        return
     if current_user.role == UserRole.CUSTOMER and order_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
     if current_user.role == UserRole.MERCHANT:
