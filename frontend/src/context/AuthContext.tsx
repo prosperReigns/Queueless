@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AuthContext } from './AuthContextValue'
 import type { AuthState, AuthUser } from '../types/auth'
 import { loginRequest, meRequest } from '../api/auth'
-import { clearStoredAuth, getInitialAuthState, storeToken } from './authStorage'
+import { clearStoredAuth, getInitialAuthState, storeTokens } from './authStorage'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(() => getInitialAuthState())
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
           const tokenPair = await loginRequest({ email, password })
-          storeToken(tokenPair.access_token)
+          storeTokens(tokenPair.access_token, tokenPair.refresh_token)
           const user = await meRequest()
           setState({ user, token: tokenPair.access_token })
           return user
