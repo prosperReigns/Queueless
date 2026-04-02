@@ -1,11 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Link, useParams } from 'react-router-dom'
 import { getOrderQrCodeRequest, getOrderRequest } from '../../../api/orders'
+import { getStoredAccessToken } from '../../../context/authStorage'
+import { subscribeToOrderUpdates } from '../../../services/websocket'
 
 const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/
 
 export function OrderConfirmationPage() {
+  const queryClient = useQueryClient()
   const { orderId } = useParams<{ orderId: string }>()
   const isValidOrderId = typeof orderId === 'string' && POSITIVE_INTEGER_PATTERN.test(orderId)
   const parsedOrderId = isValidOrderId ? Number(orderId) : 0
@@ -14,6 +18,7 @@ export function OrderConfirmationPage() {
     queryKey: ['order', parsedOrderId],
     queryFn: () => getOrderRequest(parsedOrderId),
     enabled: isValidOrderId,
+    refetchInterval: 30000,
   })
 
   const qrQuery = useQuery({
@@ -21,6 +26,26 @@ export function OrderConfirmationPage() {
     queryFn: () => getOrderQrCodeRequest(parsedOrderId),
     enabled: isValidOrderId,
   })
+
+  useEffect(() => {
+    const token = getStoredAccessToken()
+    if (!token || !isValidOrderId) {
+      return undefined
+    }
+
+    return subscribeToOrderUpdates({
+      token,
+      onOrderEvent: (event) => {
+        if (event.type === 'order_status_update' && event.order_id === parsedOrderId) {
+          void queryClient.invalidateQueries({ queryKey: ['order', parsedOrderId] })
+          void queryClient.invalidateQueries({ queryKey: ['order-qr', parsedOrderId] })
+        }
+      },
+      onError: () => {
+        void queryClient.invalidateQueries({ queryKey: ['order', parsedOrderId] })
+      },
+    })
+  }, [isValidOrderId, parsedOrderId, queryClient])
 
   if (!isValidOrderId) {
     return (
