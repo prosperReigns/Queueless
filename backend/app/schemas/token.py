@@ -1,0 +1,1 @@
+"""Auth token schema placeholder."""
