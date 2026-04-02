@@ -24,6 +24,16 @@ from app.services.store_service import get_store_by_id
 router = APIRouter(prefix="/qr-codes", tags=["qr-codes"])
 
 
+def _authorize_order_access(db: Session, current_user: User, order_user_id: object, order_store_id: int) -> None:
+    """Authorize access to a specific order for customer/merchant roles."""
+    if current_user.role == UserRole.CUSTOMER and order_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+    if current_user.role == UserRole.MERCHANT:
+        store = get_store_by_id(db, order_store_id)
+        if store is None or store.owner_id != current_user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+
+
 @router.get("/orders/{order_id}", response_model=QRCodeResponse)
 def generate_order_qr_code(
     order_id: int,
@@ -35,12 +45,7 @@ def generate_order_qr_code(
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
 
-    if current_user.role == UserRole.CUSTOMER and order.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
-    if current_user.role == UserRole.MERCHANT:
-        store = get_store_by_id(db, order.store_id)
-        if store is None or store.owner_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+    _authorize_order_access(db, current_user, order.user_id, order.store_id)
 
     qr_data = get_order_qr_data(order)
     qr_image_base64 = generate_order_qr_image_base64(order)
@@ -58,12 +63,7 @@ def validate_scanned_qr_code(
     if not is_valid or order is None:
         return QRCodeValidationResponse(is_valid=False, message=message)
 
-    if current_user.role == UserRole.CUSTOMER and order.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
-    if current_user.role == UserRole.MERCHANT:
-        store = get_store_by_id(db, order.store_id)
-        if store is None or store.owner_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+    _authorize_order_access(db, current_user, order.user_id, order.store_id)
 
     return QRCodeValidationResponse(
         is_valid=True,

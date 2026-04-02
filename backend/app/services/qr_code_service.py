@@ -66,4 +66,4 @@ def validate_scanned_qr_data(db: Session, qr_data: str) -> tuple[bool, str, Orde
 
 def is_order_pickup_ready(order: Order) -> bool:
     """Return whether the order is currently valid for pickup."""
-    return order.status in {OrderStatus.READY, OrderStatus.COMPLETED}
+    return order.status == OrderStatus.READY
