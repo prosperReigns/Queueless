@@ -6,16 +6,17 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from decimal import Decimal
+import logging
 import uuid
-from threading import Lock
 from typing import Any
 
 import anyio
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
 from app.models.order import Order
 from app.models.user import UserRole
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_order_payload(order: Order, event_type: str) -> dict[str, Any]:
@@ -27,10 +28,7 @@ def _serialize_order_payload(order: Order, event_type: str) -> dict[str, Any]:
         created_at_value = None
 
     total_amount = order.total_amount
-    if isinstance(total_amount, Decimal):
-        total_amount_value = str(total_amount)
-    else:
-        total_amount_value = str(total_amount)
+    total_amount_value = str(total_amount)
 
     return {
         "type": event_type,
@@ -49,20 +47,22 @@ class WebSocketConnectionManager:
     def __init__(self) -> None:
         self._merchant_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
         self._customer_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
-        self._lock = Lock()
+        self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket, *, user_id: uuid.UUID, role: UserRole) -> None:
         """Accept and register an authenticated websocket connection."""
         await websocket.accept()
-        with self._lock:
+        async with self._lock:
             if role == UserRole.MERCHANT:
                 self._merchant_connections[user_id].add(websocket)
             elif role == UserRole.CUSTOMER:
                 self._customer_connections[user_id].add(websocket)
+            else:
+                await websocket.close()
 
-    def disconnect(self, websocket: WebSocket, *, user_id: uuid.UUID, role: UserRole) -> None:
+    async def disconnect(self, websocket: WebSocket, *, user_id: uuid.UUID, role: UserRole) -> None:
         """Remove a websocket connection from role-scoped tracking."""
-        with self._lock:
+        async with self._lock:
             if role == UserRole.MERCHANT:
                 self._merchant_connections[user_id].discard(websocket)
                 if not self._merchant_connections[user_id]:
@@ -90,23 +90,24 @@ class WebSocketConnectionManager:
         customer_id: uuid.UUID | None = None,
     ) -> None:
         """Send payload to all active sockets in a target channel."""
-        with self._lock:
+        if merchant_id is None and customer_id is None:
+            return
+
+        async with self._lock:
             if merchant_id is not None:
                 sockets = list(self._merchant_connections.get(merchant_id, set()))
             elif customer_id is not None:
                 sockets = list(self._customer_connections.get(customer_id, set()))
-            else:
-                sockets = []
 
         disconnected: list[WebSocket] = []
         for socket in sockets:
             try:
                 await socket.send_json(payload)
-            except Exception:
+            except (RuntimeError, WebSocketDisconnect):
                 disconnected.append(socket)
 
         if disconnected:
-            with self._lock:
+            async with self._lock:
                 if merchant_id is not None:
                     bucket = self._merchant_connections.get(merchant_id, set())
                     for socket in disconnected:
@@ -135,6 +136,7 @@ def _dispatch_async(
         try:
             anyio.from_thread.run(callback, *args)
         except RuntimeError:
+            logger.warning("Unable to dispatch websocket notification from thread context.")
             return
         return
     loop.create_task(callback(*args))
