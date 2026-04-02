@@ -6,7 +6,7 @@ export function PublicOnlyRoute() {
   const { user } = useAuth()
 
   if (user) {
-    return <Navigate to={DASHBOARD_PATH_BY_ROLE[user.role]} replace />
+    return <Navigate to={DASHBOARD_PATH_BY_ROLE[user.role] ?? '/unauthorized'} replace />
   }
 
   return <Outlet />
