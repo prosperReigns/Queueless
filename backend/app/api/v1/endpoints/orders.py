@@ -67,7 +67,7 @@ def update_order_status_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
 
     try:
-        updated = update_order_status(db, order, payload.status)
+        updated = update_order_status(db, order, payload.status, actor="merchant")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return OrderResponse.model_validate(updated)

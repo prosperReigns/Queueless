@@ -16,6 +16,7 @@ from app.core.config import get_settings
 from app.models.order import Order, OrderStatus
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.user import User
+from app.services.order_service import update_order_status
 from app.services.websocket_service import publish_customer_status_update
 from app.tasks.notifications import queue_order_notification
 
@@ -295,23 +296,27 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
 
     order = db.get(Order, payment.order_id)
     if order is not None and order.status == OrderStatus.PENDING:
-        order.status = OrderStatus.PAID
-        db.add(order)
-        queue_order_notification(order.id, "order_paid")
-        publish_customer_status_update(order.user_id, order)
+        db.commit()
+        updated_order = update_order_status(
+            db,
+            order,
+            OrderStatus.PAID,
+            actor="payment_webhook",
+        )
+        queue_order_notification(updated_order.id, "order_paid")
         logger.info(
             "Order marked paid from payment webhook.",
             extra={
                 "event": "order_payment_status_updated",
-                "order_id": order.id,
-                "user_id": str(order.user_id),
+                "order_id": updated_order.id,
+                "user_id": str(updated_order.user_id),
                 "payment_reference": payment.reference,
                 "payment_status": payment.status.value,
-                "order_status": order.status.value,
+                "order_status": updated_order.status.value,
             },
         )
-
-    db.commit()
+    else:
+        db.commit()
     logger.info(
         "Payment webhook processed successfully.",
         extra={

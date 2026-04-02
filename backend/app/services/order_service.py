@@ -20,13 +20,23 @@ from app.tasks.orders import schedule_order_expiry
 
 logger = logging.getLogger(__name__)
 
-_ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
-    OrderStatus.PENDING: {OrderStatus.PAID, OrderStatus.CANCELLED},
-    OrderStatus.PAID: {OrderStatus.PREPARING},
-    OrderStatus.PREPARING: {OrderStatus.READY},
-    OrderStatus.READY: {OrderStatus.COMPLETED},
-    OrderStatus.COMPLETED: set(),
-    OrderStatus.CANCELLED: set(),
+_ALLOWED_STATUS_TRANSITIONS_BY_ACTOR: dict[str, dict[OrderStatus, set[OrderStatus]]] = {
+    "payment_webhook": {
+        OrderStatus.PENDING: {OrderStatus.PAID},
+        OrderStatus.PAID: set(),
+        OrderStatus.PREPARING: set(),
+        OrderStatus.READY: set(),
+        OrderStatus.COMPLETED: set(),
+        OrderStatus.CANCELLED: set(),
+    },
+    "merchant": {
+        OrderStatus.PENDING: set(),
+        OrderStatus.PAID: {OrderStatus.PREPARING},
+        OrderStatus.PREPARING: {OrderStatus.READY},
+        OrderStatus.READY: {OrderStatus.COMPLETED},
+        OrderStatus.COMPLETED: set(),
+        OrderStatus.CANCELLED: set(),
+    },
 }
 
 
@@ -125,34 +135,55 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     return order
 
 
-def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order:
-    """Update an order status if the transition is valid."""
+def update_order_status(
+    db: Session,
+    order: Order,
+    status: OrderStatus,
+    *,
+    actor: str,
+) -> Order:
+    """Update an order status if the actor and transition are valid."""
+    actor_transitions = _ALLOWED_STATUS_TRANSITIONS_BY_ACTOR.get(actor)
+    if actor_transitions is None:
+        logger.warning(
+            "Order status update failed: unknown actor.",
+            extra={
+                "event": "order_status_update_failed",
+                "order_id": order.id,
+                "actor": actor,
+                "reason": "unknown_actor",
+            },
+        )
+        raise ValueError(f"Unsupported order status actor: {actor}.")
+
     if order.status == status:
         logger.info(
             "Order status update skipped: unchanged status.",
             extra={
                 "event": "order_status_unchanged",
                 "order_id": order.id,
+                "actor": actor,
                 "status": order.status.value,
             },
         )
         return order
 
     previous_status = order.status
-    allowed_next_statuses = _ALLOWED_STATUS_TRANSITIONS[order.status]
+    allowed_next_statuses = actor_transitions[order.status]
     if status not in allowed_next_statuses:
         logger.warning(
             "Order status update failed: invalid transition.",
             extra={
                 "event": "order_status_update_failed",
                 "order_id": order.id,
+                "actor": actor,
                 "from_status": previous_status.value,
                 "to_status": status.value,
                 "reason": "invalid_transition",
             },
         )
         raise ValueError(
-            f"Invalid order status transition: {order.status.value} -> {status.value}."
+            f"Invalid {actor} order status transition: {order.status.value} -> {status.value}."
         )
 
     order.status = status
@@ -166,6 +197,7 @@ def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order
         extra={
             "event": "order_status_updated",
             "order_id": order.id,
+            "actor": actor,
             "user_id": str(order.user_id),
             "store_id": order.store_id,
             "from_status": previous_status.value,
