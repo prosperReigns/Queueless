@@ -31,10 +31,15 @@ def get_current_user(
     )
     try:
         payload = decode_token(token)
-        subject = payload.get("sub")
-        token_type = payload.get("type")
-        if subject is None or token_type != "access":
-            raise credentials_error
+    except ValueError:
+        raise credentials_error
+
+    subject = payload.get("sub")
+    token_type = payload.get("type")
+    if subject is None or token_type != "access":
+        raise credentials_error
+
+    try:
         user_id = uuid.UUID(str(subject))
     except (ValueError, TypeError):
         raise credentials_error
@@ -53,7 +58,10 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 
 
 def require_roles(*allowed_roles: UserRole) -> Callable[..., User]:
-    """Create dependency that enforces role-based access."""
+    """Create dependency that enforces role-based access.
+
+    Admin users are always allowed regardless of the provided role list.
+    """
 
     def _role_dependency(current_user: User = Depends(get_current_active_user)) -> User:
         if current_user.role == UserRole.ADMIN:
