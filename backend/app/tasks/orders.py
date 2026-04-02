@@ -92,6 +92,7 @@ def expire_pending_orders_task(self) -> int:  # noqa: ARG001
                     )
                     expired_count += 1
                 last_seen_id = order.id
+            db.commit()
     return expired_count
 
 

@@ -50,6 +50,32 @@ def get_order_by_id(db: Session, order_id: int) -> Order | None:
     return db.scalar(stmt)
 
 
+def validate_order_status_transition(
+    order: Order,
+    status: OrderStatus,
+    *,
+    source: OrderStatusTransitionSource = OrderStatusTransitionSource.MERCHANT,
+) -> None:
+    """Validate an order status transition for a specific transition source."""
+    allowed_next_statuses = _ALLOWED_SOURCE_TRANSITIONS.get(source, {}).get(order.status, set())
+    if status not in allowed_next_statuses:
+        logger.warning(
+            "Order status update failed: invalid transition.",
+            extra={
+                "event": "order_status_update_failed",
+                "order_id": order.id,
+                "from_status": order.status.value,
+                "to_status": status.value,
+                "source": source.value,
+                "reason": "invalid_transition",
+            },
+        )
+        raise ValueError(
+            f"Invalid order status transition for {source.value}: "
+            f"{order.status.value} -> {status.value}."
+        )
+
+
 def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order:
     """Create an order with line items and computed total amount."""
     store = db.get(Store, payload.store_id)
@@ -159,23 +185,7 @@ def update_order_status(
         return order
 
     previous_status = order.status
-    allowed_next_statuses = _ALLOWED_SOURCE_TRANSITIONS.get(source, {}).get(order.status, set())
-    if status not in allowed_next_statuses:
-        logger.warning(
-            "Order status update failed: invalid transition.",
-            extra={
-                "event": "order_status_update_failed",
-                "order_id": order.id,
-                "from_status": previous_status.value,
-                "to_status": status.value,
-                "source": source.value,
-                "reason": "invalid_transition",
-            },
-        )
-        raise ValueError(
-            f"Invalid order status transition for {source.value}: "
-            f"{order.status.value} -> {status.value}."
-        )
+    validate_order_status_transition(order, status, source=source)
 
     order.status = status
     db.add(order)

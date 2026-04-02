@@ -16,7 +16,11 @@ from app.core.config import get_settings
 from app.models.order import Order, OrderStatus
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.user import User
-from app.services.order_service import OrderStatusTransitionSource, update_order_status
+from app.services.order_service import (
+    OrderStatusTransitionSource,
+    update_order_status,
+    validate_order_status_transition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -289,12 +293,17 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
         )
         return (True, "payment_already_failed")
 
+    order = db.get(Order, payment.order_id)
+    if order is not None and order.status == OrderStatus.PENDING:
+        validate_order_status_transition(
+            order,
+            OrderStatus.PAID,
+            source=OrderStatusTransitionSource.PAYMENT_WEBHOOK,
+        )
+
     payment.status = PaymentStatus.SUCCESS
     db.add(payment)
 
-    db.commit()
-
-    order = db.get(Order, payment.order_id)
     if order is not None and order.status == OrderStatus.PENDING:
         update_order_status(
             db,
@@ -313,6 +322,8 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
                 "order_status": order.status.value,
             },
         )
+    else:
+        db.commit()
     logger.info(
         "Payment webhook processed successfully.",
         extra={
