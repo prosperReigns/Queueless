@@ -13,6 +13,7 @@ from app.models.order_item import OrderItem
 from app.models.product import Product
 from app.models.store import Store
 from app.schemas.order import OrderCreate
+from app.services.websocket_service import publish_customer_status_update, publish_merchant_new_order
 from app.tasks.notifications import queue_order_notification
 from app.tasks.orders import schedule_order_expiry
 
@@ -76,6 +77,7 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     db.refresh(order)
     schedule_order_expiry(order.id)
     queue_order_notification(order.id, "order_created")
+    publish_merchant_new_order(store.owner_id, order)
     return order
 
 
@@ -95,4 +97,5 @@ def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order
     db.commit()
     db.refresh(order)
     queue_order_notification(order.id, f"order_status_{order.status.value}")
+    publish_customer_status_update(order.user_id, order)
     return order

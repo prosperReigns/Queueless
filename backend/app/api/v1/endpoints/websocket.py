@@ -1,1 +1,59 @@
-"""WebSocket endpoint placeholders."""
+"""WebSocket endpoints for real-time order notifications."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
+from jose import JWTError
+from sqlalchemy.orm import Session
+
+from app.db.session import SessionLocal
+from app.core.security import decode_token
+from app.models.user import UserRole
+from app.services.auth_service import get_user_by_id
+from app.services.websocket_service import connection_manager
+
+router = APIRouter(tags=["websocket"])
+
+
+@router.websocket("/ws/orders")
+async def order_notifications_websocket(
+    websocket: WebSocket,
+    token: str = Query(min_length=1),
+) -> None:
+    """Subscribe authenticated customers/merchants to order event notifications."""
+    close_code = status.WS_1008_POLICY_VIOLATION
+
+    try:
+        payload = decode_token(token)
+    except ValueError:
+        await websocket.close(code=close_code)
+        return
+
+    subject = payload.get("sub")
+    token_type = payload.get("type")
+    if subject is None or token_type != "access":
+        await websocket.close(code=close_code)
+        return
+
+    db: Session = SessionLocal()
+    try:
+        try:
+            user = get_user_by_id(db, subject)
+        except (ValueError, TypeError, JWTError):
+            user = None
+
+        if user is None or not user.is_active:
+            await websocket.close(code=close_code)
+            return
+        if user.role not in {UserRole.MERCHANT, UserRole.CUSTOMER}:
+            await websocket.close(code=close_code)
+            return
+
+        await connection_manager.connect(websocket, user_id=user.id, role=user.role)
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            connection_manager.disconnect(websocket, user_id=user.id, role=user.role)
+    finally:
+        db.close()
