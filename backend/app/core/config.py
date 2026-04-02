@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_TIMEOUT: int = 30
     DB_POOL_RECYCLE: int = 1800
+    PAYSTACK_SECRET_KEY: str | None = Field(
+        default=None,
+        description="Paystack secret key used for transaction initialization and webhook verification",
+    )
+    PAYSTACK_BASE_URL: str = "https://api.paystack.co"
 
     @field_validator("DATABASE_URL")
     @classmethod
