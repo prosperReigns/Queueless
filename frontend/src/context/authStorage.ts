@@ -3,6 +3,7 @@ import type { AuthState } from '../types/auth'
 export const ACCESS_TOKEN_KEY = 'queueless_access_token'
 export const REFRESH_TOKEN_KEY = 'queueless_refresh_token'
 export const TOKEN_KEY = ACCESS_TOKEN_KEY
+const LEGACY_TOKEN_KEY = 'queueless_token'
 
 let inMemoryAccessToken: string | null = null
 let inMemoryRefreshToken: string | null = null
@@ -12,7 +13,7 @@ export const clearStoredAuth = () => {
   inMemoryRefreshToken = null
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
-  localStorage.removeItem('queueless_token')
+  localStorage.removeItem(LEGACY_TOKEN_KEY)
 }
 
 export const storeTokens = (accessToken: string, refreshToken?: string) => {
@@ -31,7 +32,7 @@ export const storeToken = (token: string) => {
 
 export const getStoredAccessToken = () => {
   const persistedAccessToken =
-    localStorage.getItem(ACCESS_TOKEN_KEY) ?? localStorage.getItem('queueless_token')
+    localStorage.getItem(ACCESS_TOKEN_KEY) ?? localStorage.getItem(LEGACY_TOKEN_KEY)
 
   if (inMemoryAccessToken !== persistedAccessToken) {
     inMemoryAccessToken = persistedAccessToken
