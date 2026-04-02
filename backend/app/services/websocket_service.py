@@ -58,6 +58,7 @@ class WebSocketConnectionManager:
             elif role == UserRole.CUSTOMER:
                 self._customer_connections[user_id].add(websocket)
             else:
+                logger.warning("Rejected websocket connection for unsupported role: %s", role)
                 await websocket.close()
 
     async def disconnect(self, websocket: WebSocket, *, user_id: uuid.UUID, role: UserRole) -> None:
@@ -92,8 +93,12 @@ class WebSocketConnectionManager:
         """Send payload to all active sockets in a target channel."""
         if merchant_id is None and customer_id is None:
             return
+        if merchant_id is not None and customer_id is not None:
+            logger.warning("WebSocket broadcast called with both merchant_id and customer_id; ignoring.")
+            return
 
         async with self._lock:
+            sockets: list[WebSocket] = []
             if merchant_id is not None:
                 sockets = list(self._merchant_connections.get(merchant_id, set()))
             elif customer_id is not None:
@@ -104,6 +109,7 @@ class WebSocketConnectionManager:
             try:
                 await socket.send_json(payload)
             except (RuntimeError, WebSocketDisconnect):
+                logger.debug("Marking websocket as disconnected during broadcast.", exc_info=True)
                 disconnected.append(socket)
 
         if disconnected:

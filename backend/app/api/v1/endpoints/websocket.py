@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 from jose import JWTError
-from sqlalchemy.orm import Session
-
 from app.db.session import SessionLocal
 from app.core.security import decode_token
 from app.models.user import UserRole
@@ -16,6 +15,7 @@ from app.services.websocket_service import connection_manager
 
 router = APIRouter(tags=["websocket"])
 _WS_RECEIVE_TIMEOUT_SECONDS = 60
+logger = logging.getLogger(__name__)
 
 
 @router.websocket("/ws/orders")
@@ -38,15 +38,13 @@ async def order_notifications_websocket(
         await websocket.close(code=close_code)
         return
 
-    db: Session = SessionLocal()
     user = None
-    try:
+    with SessionLocal() as db:
         try:
             user = get_user_by_id(db, subject)
         except (ValueError, TypeError):
+            logger.warning("WebSocket auth failed: invalid user subject in token.")
             pass
-    finally:
-        db.close()
 
     if user is None or not user.is_active:
         await websocket.close(code=close_code)
@@ -59,8 +57,13 @@ async def order_notifications_websocket(
     try:
         try:
             while True:
-                # Intentionally read and ignore client frames to keep this server-push socket alive.
-                await asyncio.wait_for(websocket.receive(), timeout=_WS_RECEIVE_TIMEOUT_SECONDS)
+                # Read client frames to keep connection alive; only disconnect frames are acted upon.
+                message = await asyncio.wait_for(
+                    websocket.receive(),
+                    timeout=_WS_RECEIVE_TIMEOUT_SECONDS,
+                )
+                if message.get("type") == "websocket.disconnect":
+                    break
         except asyncio.TimeoutError:
             await websocket.close()
         except WebSocketDisconnect:
