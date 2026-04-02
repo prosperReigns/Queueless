@@ -14,6 +14,7 @@ class PaymentInitiateRequest(BaseModel):
     """Request payload for initiating payment."""
 
     order_id: int = Field(gt=0)
+    callback_url: str | None = Field(default=None, min_length=1, max_length=2048)
 
 
 class PaymentWebhookRequest(BaseModel):
@@ -37,3 +38,12 @@ class PaymentResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentInitiateResponse(BaseModel):
+    """Response payload for payment initialization."""
+
+    payment: PaymentResponse
+    authorization_url: str = Field(min_length=1, max_length=2048)
+    access_code: str = Field(min_length=1, max_length=255)
+    reference: str = Field(min_length=1, max_length=255)
