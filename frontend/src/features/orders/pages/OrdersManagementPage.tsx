@@ -5,12 +5,10 @@ import { OrderCard } from '../../../components/cards/OrderCard'
 import { listMerchantOrdersRequest, updateOrderStatusRequest } from '../../../api/orders'
 import { useAuth } from '../../../hooks/useAuth'
 import { getStoredAccessToken } from '../../../context/authStorage'
-import { createOrderUpdatesSocket } from '../../../services/websocket'
+import { subscribeToOrderUpdates } from '../../../services/websocket'
 import type { OrderStatus } from '../../../types/orders'
 import { NEXT_STATUS_OPTIONS } from '../orderStatus'
 import { ORDER_STATUS_LABELS } from '../orderStatus'
-
-const ORDERS_WEBSOCKET_URL_PATTERN = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000/api/v1/ws/orders'
 
 export function OrdersManagementPage() {
   const queryClient = useQueryClient()
@@ -29,16 +27,15 @@ export function OrdersManagementPage() {
       return undefined
     }
 
-    const socketUrl = `${ORDERS_WEBSOCKET_URL_PATTERN}?token=${encodeURIComponent(token)}`
-    const socket = createOrderUpdatesSocket(socketUrl)
-
-    socket.onmessage = () => {
-      void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })
-    }
-
-    return () => {
-      socket.close()
-    }
+    return subscribeToOrderUpdates({
+      token,
+      onOrderEvent: () => {
+        void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })
+      },
+      onError: () => {
+        void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })
+      },
+    })
   }, [queryClient, user?.id])
 
   const updateStatusMutation = useMutation({

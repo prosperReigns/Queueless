@@ -1,17 +1,42 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { listMerchantOrdersRequest } from '../../../api/orders'
 import { ORDER_STATUS_LABELS } from '../../orders/orderStatus'
 import type { OrderStatus } from '../../../types/orders'
+import { getStoredAccessToken } from '../../../context/authStorage'
+import { subscribeToOrderUpdates } from '../../../services/websocket'
+import { useAuth } from '../../../hooks/useAuth'
 
 const MAX_LATEST_ORDERS_DISPLAY = 5
 
 export function MerchantDashboardPage() {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+
   const ordersQuery = useQuery({
     queryKey: ['merchant-dashboard-orders'],
     queryFn: () => listMerchantOrdersRequest(),
+    enabled: Boolean(user?.id),
     refetchInterval: 30000,
   })
+
+  useEffect(() => {
+    const token = getStoredAccessToken()
+    if (!token || !user?.id) {
+      return undefined
+    }
+
+    return subscribeToOrderUpdates({
+      token,
+      onOrderEvent: () => {
+        void queryClient.invalidateQueries({ queryKey: ['merchant-dashboard-orders'] })
+      },
+      onError: () => {
+        void queryClient.invalidateQueries({ queryKey: ['merchant-dashboard-orders'] })
+      },
+    })
+  }, [queryClient, user?.id])
 
   const orders = ordersQuery.data ?? []
   const countsByStatus = orders.reduce<Record<OrderStatus, number>>(
