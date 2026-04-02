@@ -66,7 +66,10 @@ def update_order_status_endpoint(
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
     if current_user.role == UserRole.MERCHANT and store.owner_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only manage orders for your own stores.",
+        )
 
     try:
         updated = update_order_status(db, order, payload.status)

@@ -39,9 +39,10 @@ def _serialize_order_payload(order: Order, event_type: str) -> dict[str, Any]:
 
 
 class WebSocketConnectionManager:
-    """Track and notify active merchant/customer websocket sessions."""
+    """Track and notify active admin/merchant/customer websocket sessions."""
 
     def __init__(self) -> None:
+        self._admin_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
         self._merchant_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
         self._customer_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
         self._lock = asyncio.Lock()
@@ -50,7 +51,9 @@ class WebSocketConnectionManager:
         """Accept and register an authenticated websocket connection."""
         await websocket.accept()
         async with self._lock:
-            if role == UserRole.MERCHANT:
+            if role == UserRole.ADMIN:
+                self._admin_connections[user_id].add(websocket)
+            elif role == UserRole.MERCHANT:
                 self._merchant_connections[user_id].add(websocket)
             elif role == UserRole.CUSTOMER:
                 self._customer_connections[user_id].add(websocket)
@@ -61,7 +64,11 @@ class WebSocketConnectionManager:
     async def disconnect(self, websocket: WebSocket, *, user_id: uuid.UUID, role: UserRole) -> None:
         """Remove a websocket connection from role-scoped tracking."""
         async with self._lock:
-            if role == UserRole.MERCHANT:
+            if role == UserRole.ADMIN:
+                self._admin_connections[user_id].discard(websocket)
+                if not self._admin_connections[user_id]:
+                    del self._admin_connections[user_id]
+            elif role == UserRole.MERCHANT:
                 self._merchant_connections[user_id].discard(websocket)
                 if not self._merchant_connections[user_id]:
                     del self._merchant_connections[user_id]
