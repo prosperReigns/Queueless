@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -16,6 +17,8 @@ from app.schemas.order import OrderCreate
 from app.services.websocket_service import publish_customer_status_update, publish_merchant_new_order
 from app.tasks.notifications import queue_order_notification
 from app.tasks.orders import schedule_order_expiry
+
+logger = logging.getLogger(__name__)
 
 _ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.PENDING: {OrderStatus.PAID, OrderStatus.CANCELLED},
@@ -37,6 +40,15 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     """Create an order with line items and computed total amount."""
     store = db.get(Store, payload.store_id)
     if store is None or not store.is_active:
+        logger.warning(
+            "Order creation failed: store missing or inactive.",
+            extra={
+                "event": "order_creation_failed",
+                "user_id": str(user_id),
+                "store_id": payload.store_id,
+                "reason": "store_missing_or_inactive",
+            },
+        )
         raise ValueError("Store not found or inactive.")
 
     product_ids = [item.product_id for item in payload.items]
@@ -50,8 +62,28 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     for item in payload.items:
         product = product_by_id.get(item.product_id)
         if product is None:
+            logger.warning(
+                "Order creation failed: product not found in store.",
+                extra={
+                    "event": "order_creation_failed",
+                    "user_id": str(user_id),
+                    "store_id": payload.store_id,
+                    "product_id": item.product_id,
+                    "reason": "product_not_found_in_store",
+                },
+            )
             raise ValueError(f"Product {item.product_id} not found in this store.")
         if not product.is_available:
+            logger.warning(
+                "Order creation failed: product unavailable.",
+                extra={
+                    "event": "order_creation_failed",
+                    "user_id": str(user_id),
+                    "store_id": payload.store_id,
+                    "product_id": item.product_id,
+                    "reason": "product_unavailable",
+                },
+            )
             raise ValueError(f"Product {item.product_id} is not available.")
 
         line_price = Decimal(product.price)
@@ -78,16 +110,47 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     schedule_order_expiry(order.id)
     queue_order_notification(order.id, "order_created")
     publish_merchant_new_order(store.owner_id, order)
+    logger.info(
+        "Order created.",
+        extra={
+            "event": "order_created",
+            "order_id": order.id,
+            "user_id": str(order.user_id),
+            "store_id": order.store_id,
+            "status": order.status.value,
+            "total_amount": str(order.total_amount),
+            "item_count": len(order.items),
+        },
+    )
     return order
 
 
 def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order:
     """Update an order status if the transition is valid."""
     if order.status == status:
+        logger.info(
+            "Order status update skipped: unchanged status.",
+            extra={
+                "event": "order_status_unchanged",
+                "order_id": order.id,
+                "status": order.status.value,
+            },
+        )
         return order
 
+    previous_status = order.status
     allowed_next_statuses = _ALLOWED_STATUS_TRANSITIONS[order.status]
     if status not in allowed_next_statuses:
+        logger.warning(
+            "Order status update failed: invalid transition.",
+            extra={
+                "event": "order_status_update_failed",
+                "order_id": order.id,
+                "from_status": previous_status.value,
+                "to_status": status.value,
+                "reason": "invalid_transition",
+            },
+        )
         raise ValueError(
             f"Invalid order status transition: {order.status.value} -> {status.value}."
         )
@@ -98,4 +161,15 @@ def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order
     db.refresh(order)
     queue_order_notification(order.id, f"order_status_{order.status.value}")
     publish_customer_status_update(order.user_id, order)
+    logger.info(
+        "Order status updated.",
+        extra={
+            "event": "order_status_updated",
+            "order_id": order.id,
+            "user_id": str(order.user_id),
+            "store_id": order.store_id,
+            "from_status": previous_status.value,
+            "to_status": order.status.value,
+        },
+    )
     return order
