@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.order import OrderStatus
 from app.schemas.order_item import OrderItemCreate, OrderItemResponse
@@ -38,10 +38,3 @@ class OrderResponse(BaseModel):
     items: list[OrderItemResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
-
-    @field_validator("payment_reference")
-    @classmethod
-    def validate_payment_reference(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("payment_reference must not be empty.")
-        return value

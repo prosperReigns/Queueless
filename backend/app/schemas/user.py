@@ -37,6 +37,17 @@ class UserUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if value.strip() != value:
+            raise ValueError("Password cannot start or end with whitespace.")
+        if value.isspace():
+            raise ValueError("Password cannot be only whitespace.")
+        return value
+
 
 class UserResponse(BaseModel):
     """Response payload for a user."""
