@@ -9,7 +9,7 @@ interface LoginRequest {
 interface RegisterRequest {
   email: string
   password: string
-  role?: UserRole
+  role: UserRole
 }
 
 interface LoginResponse {
@@ -31,12 +31,12 @@ const toUserRole = (role: string): UserRole => {
     return normalized
   }
 
-  return 'CUSTOMER'
+  throw new Error(`Unsupported user role received: ${role}`)
 }
 
 const toAuthUser = (payload: MeResponse): AuthUser => ({
   id: payload.id,
-  name: payload.email,
+  email: payload.email,
   role: toUserRole(payload.role),
 })
 
@@ -48,13 +48,11 @@ export async function loginRequest(payload: LoginRequest): Promise<LoginResponse
 export async function registerRequest(payload: RegisterRequest): Promise<void> {
   await apiClient.post('/auth/register', {
     ...payload,
-    role: payload.role?.toLowerCase(),
+    role: payload.role.toLowerCase(),
   })
 }
 
-export async function meRequest(accessToken?: string): Promise<AuthUser> {
-  const { data } = await apiClient.get<MeResponse>('/auth/me', {
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-  })
+export async function meRequest(): Promise<AuthUser> {
+  const { data } = await apiClient.get<MeResponse>('/auth/me')
   return toAuthUser(data)
 }
