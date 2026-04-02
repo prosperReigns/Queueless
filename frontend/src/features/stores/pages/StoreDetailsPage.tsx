@@ -4,12 +4,12 @@ import { Link, useParams } from 'react-router-dom'
 import { ProductCard } from '../../../components/cards/ProductCard'
 import { getStoreRequest, listStoreProductsRequest } from '../../../api/stores'
 
-const STORE_ID_PATTERN = /^[1-9]\d*$/
+const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/
 
 export function StoreDetailsPage() {
   const { storeId } = useParams<{ storeId: string }>()
-  const isValidStoreId = typeof storeId === 'string' && STORE_ID_PATTERN.test(storeId)
-  const parsedStoreId = isValidStoreId ? Number(storeId) : 0
+  const isValidStoreId = typeof storeId === 'string' && POSITIVE_INTEGER_PATTERN.test(storeId)
+  const parsedStoreId: number | null = isValidStoreId ? Number(storeId) : null
 
   const {
     data: store,
@@ -20,7 +20,7 @@ export function StoreDetailsPage() {
     isFetching: isStoreFetching,
   } = useQuery({
     queryKey: ['store', parsedStoreId],
-    queryFn: () => getStoreRequest(parsedStoreId),
+    queryFn: () => getStoreRequest(parsedStoreId as number),
     enabled: isValidStoreId,
   })
 
@@ -33,7 +33,7 @@ export function StoreDetailsPage() {
     isFetching: isProductsFetching,
   } = useQuery({
     queryKey: ['store-products', parsedStoreId],
-    queryFn: () => listStoreProductsRequest(parsedStoreId),
+    queryFn: () => listStoreProductsRequest(parsedStoreId as number),
     enabled: isValidStoreId,
   })
 
