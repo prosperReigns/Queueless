@@ -1,7 +1,1 @@
-export const ORDER_STATUSES = [
-  'Pending',
-  'Paid',
-  'Preparing',
-  'Ready',
-  'Completed',
-] as const
+export { ORDER_STATUS_OPTIONS as ORDER_STATUSES } from '../features/orders/orderStatus'

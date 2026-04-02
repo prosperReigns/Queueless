@@ -86,6 +86,36 @@ a {
   background: #e5e7eb;
 }
 
+.status-badge--pending {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.status-badge--paid {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.status-badge--preparing {
+  color: #5b21b6;
+  background: #ede9fe;
+}
+
+.status-badge--ready {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.status-badge--completed {
+  color: #155e75;
+  background: #cffafe;
+}
+
+.status-badge--cancelled {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
 .muted-text {
   color: #6b7280;
 }
@@ -172,4 +202,82 @@ button:disabled {
   width: min(100%, 320px);
   aspect-ratio: 1 / 1;
   margin-top: 0.75rem;
+}
+
+.dashboard-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.dashboard-sidebar {
+  width: 220px;
+  border-right: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.dashboard-sidebar__nav {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard-sidebar__nav a {
+  display: block;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+
+.dashboard-sidebar__nav a:hover {
+  background: #f3f4f6;
+}
+
+.dashboard-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.merchant-stats-grid,
+.merchant-orders-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.merchant-stats-grid {
+  margin-bottom: 1rem;
+}
+
+.merchant-stat-value {
+  margin: 0.5rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .dashboard-shell {
+    flex-direction: column;
+  }
+
+  .dashboard-sidebar {
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .dashboard-sidebar__nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-sidebar__nav a {
+    text-align: center;
+  }
+}
+
+@media (min-width: 768px) {
+  .merchant-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }

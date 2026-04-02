@@ -3,6 +3,8 @@ export interface OrderItemCreate {
   quantity: number
 }
 
+export type OrderStatus = 'pending' | 'paid' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+
 export interface OrderCreateRequest {
   store_id: number
   items: OrderItemCreate[]
@@ -21,10 +23,14 @@ export interface OrderResponse {
   user_id: string
   store_id: number
   total_amount: string
-  status: string
+  status: OrderStatus
   payment_reference: string
   created_at: string
   items: OrderItemResponse[]
+}
+
+export interface OrderStatusUpdateRequest {
+  status: OrderStatus
 }
 
 export interface PaymentResponse {
