@@ -10,7 +10,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!state.token || state.user) {
-      setIsInitializing(false)
       return
     }
 
