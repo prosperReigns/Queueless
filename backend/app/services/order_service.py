@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from enum import Enum
 import logging
 import uuid
 
@@ -20,13 +21,26 @@ from app.tasks.orders import schedule_order_expiry
 
 logger = logging.getLogger(__name__)
 
-_ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
-    OrderStatus.PENDING: {OrderStatus.PAID, OrderStatus.CANCELLED},
-    OrderStatus.PAID: {OrderStatus.PREPARING},
-    OrderStatus.PREPARING: {OrderStatus.READY},
-    OrderStatus.READY: {OrderStatus.COMPLETED},
-    OrderStatus.COMPLETED: set(),
-    OrderStatus.CANCELLED: set(),
+class OrderStatusTransitionSource(str, Enum):
+    """Source responsible for requesting an order status transition."""
+
+    MERCHANT = "merchant"
+    PAYMENT_WEBHOOK = "payment_webhook"
+    SYSTEM = "system"
+
+
+_ALLOWED_SOURCE_TRANSITIONS: dict[OrderStatusTransitionSource, dict[OrderStatus, set[OrderStatus]]] = {
+    OrderStatusTransitionSource.MERCHANT: {
+        OrderStatus.PAID: {OrderStatus.PREPARING},
+        OrderStatus.PREPARING: {OrderStatus.READY},
+        OrderStatus.READY: {OrderStatus.COMPLETED},
+    },
+    OrderStatusTransitionSource.PAYMENT_WEBHOOK: {
+        OrderStatus.PENDING: {OrderStatus.PAID},
+    },
+    OrderStatusTransitionSource.SYSTEM: {
+        OrderStatus.PENDING: {OrderStatus.CANCELLED},
+    },
 }
 
 
@@ -125,7 +139,13 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     return order
 
 
-def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order:
+def update_order_status(
+    db: Session,
+    order: Order,
+    status: OrderStatus,
+    *,
+    source: OrderStatusTransitionSource = OrderStatusTransitionSource.MERCHANT,
+) -> Order:
     """Update an order status if the transition is valid."""
     if order.status == status:
         logger.info(
@@ -139,7 +159,7 @@ def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order
         return order
 
     previous_status = order.status
-    allowed_next_statuses = _ALLOWED_STATUS_TRANSITIONS[order.status]
+    allowed_next_statuses = _ALLOWED_SOURCE_TRANSITIONS.get(source, {}).get(order.status, set())
     if status not in allowed_next_statuses:
         logger.warning(
             "Order status update failed: invalid transition.",
@@ -148,11 +168,13 @@ def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order
                 "order_id": order.id,
                 "from_status": previous_status.value,
                 "to_status": status.value,
+                "source": source.value,
                 "reason": "invalid_transition",
             },
         )
         raise ValueError(
-            f"Invalid order status transition: {order.status.value} -> {status.value}."
+            f"Invalid order status transition for {source.value}: "
+            f"{order.status.value} -> {status.value}."
         )
 
     order.status = status
