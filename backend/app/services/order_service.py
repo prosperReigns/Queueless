@@ -141,6 +141,8 @@ def update_order_status(
     status: OrderStatus,
     *,
     actor: str,
+    commit: bool = True,
+    emit_side_effects: bool = True,
 ) -> Order:
     """Update an order status if the actor and transition are valid."""
     if actor not in _ALLOWED_STATUS_TRANSITIONS_BY_ACTOR:
@@ -188,10 +190,12 @@ def update_order_status(
 
     order.status = status
     db.add(order)
-    db.commit()
-    db.refresh(order)
-    queue_order_notification(order.id, f"order_status_{order.status.value}")
-    publish_customer_status_update(order.user_id, order)
+    if commit:
+        db.commit()
+        db.refresh(order)
+    if emit_side_effects:
+        queue_order_notification(order.id, f"order_status_{order.status.value}")
+        publish_customer_status_update(order.user_id, order)
     logger.info(
         "Order status updated.",
         extra={

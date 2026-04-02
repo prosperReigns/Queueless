@@ -295,13 +295,16 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
 
     order = db.get(Order, payment.order_id)
     if order is not None and order.status == OrderStatus.PENDING:
-        order = update_order_status(
+        update_order_status(
             db,
             order,
             OrderStatus.PAID,
             actor="payment_webhook",
+            commit=False,
+            emit_side_effects=False,
         )
         queue_order_notification(order.id, "order_paid")
+        publish_customer_status_update(order.user_id, order)
         logger.info(
             "Order marked paid from payment webhook.",
             extra={
@@ -313,8 +316,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
                 "order_status": order.status.value,
             },
         )
-    else:
-        db.commit()
+    db.commit()
     logger.info(
         "Payment webhook processed successfully.",
         extra={
