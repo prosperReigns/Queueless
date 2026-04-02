@@ -117,7 +117,7 @@ export function StoreDetailsPage() {
                     onClick={() => addToCart({ product })}
                     disabled={!product.is_available}
                   >
-                    {cartStoreId && cartStoreId !== product.store_id ? 'Switch store cart & add item' : 'Add to cart'}
+                    {cartStoreId && cartStoreId !== product.store_id ? 'Add (switches cart)' : 'Add to cart'}
                   </button>
                 </article>
               ))}
