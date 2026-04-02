@@ -90,8 +90,12 @@ def initialize_paystack_payment(
         raise ValueError("Failed to contact payment provider due to network error.") from exc
 
     if response.status_code >= 400:
+        error_body = response.text.strip()
+        if len(error_body) > 300:
+            error_body = f"{error_body[:300]}..."
         raise ValueError(
-            f"Payment provider rejected initialization request (status={response.status_code})."
+            f"Payment provider rejected initialization request (status={response.status_code}): "
+            f"{error_body or 'no details'}"
         )
 
     data = response.json()
@@ -148,7 +152,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
     if payment.status == PaymentStatus.SUCCESS:
         return (True, "already_processed")
     if payment.status == PaymentStatus.FAILED:
-        return (False, "payment_already_failed")
+        return (True, "payment_already_failed")
 
     payment.status = PaymentStatus.SUCCESS
     db.add(payment)
