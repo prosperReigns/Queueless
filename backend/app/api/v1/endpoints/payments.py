@@ -53,5 +53,7 @@ async def paystack_webhook(
     if not verify_paystack_webhook_signature(raw_body, signature):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature.")
 
-    handle_paystack_webhook_event(db, raw_body)
+    processed = handle_paystack_webhook_event(db, raw_body)
+    if not processed:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook event not processed.")
     return {"status": "ok"}

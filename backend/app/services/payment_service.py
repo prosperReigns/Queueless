@@ -84,11 +84,15 @@ def initialize_paystack_payment(
             headers=headers,
             timeout=15,
         )
+    except httpx.TimeoutException as exc:
+        raise ValueError("Timed out while contacting payment provider.") from exc
     except httpx.HTTPError as exc:
-        raise ValueError("Failed to reach payment provider.") from exc
+        raise ValueError(f"Failed contacting payment provider: {type(exc).__name__}.") from exc
 
     if response.status_code >= 400:
-        raise ValueError("Payment provider rejected initialization request.")
+        raise ValueError(
+            f"Payment provider rejected initialization request (status={response.status_code})."
+        )
 
     data = response.json()
     if not data.get("status"):
@@ -124,7 +128,10 @@ def verify_paystack_webhook_signature(raw_body: bytes, signature: str | None) ->
 
 def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> bool:
     """Process Paystack webhook event and update records idempotently."""
-    event = json.loads(raw_body.decode("utf-8"))
+    try:
+        event = json.loads(raw_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False
     if event.get("event") != "charge.success":
         return False
 
