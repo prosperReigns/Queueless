@@ -16,10 +16,7 @@ from app.core.config import get_settings
 from app.models.order import Order, OrderStatus
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.user import User
-from app.services.order_service import (
-    OrderStatusTransitionSource,
-    update_order_status,
-)
+from app.services.order_service import emit_order_status_side_effects, update_order_status
 
 logger = logging.getLogger(__name__)
 
@@ -302,8 +299,11 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
             db,
             order,
             OrderStatus.PAID,
-            source=OrderStatusTransitionSource.PAYMENT_WEBHOOK,
+            actor="payment_webhook",
+            commit=False,
+            emit_side_effects=False,
         )
+        emit_order_status_side_effects(order, notification_event="order_paid")
         logger.info(
             "Order marked paid from payment webhook.",
             extra={
@@ -315,8 +315,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
                 "order_status": order.status.value,
             },
         )
-    else:
-        db.commit()
+    db.commit()
     logger.info(
         "Payment webhook processed successfully.",
         extra={
