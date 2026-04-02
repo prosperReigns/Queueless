@@ -153,7 +153,7 @@ def update_order_status(
                 "reason": "unknown_actor",
             },
         )
-        raise ValueError(f"Unsupported order status actor: {actor}.")
+        raise ValueError(f"Unknown order status actor: {actor}.")
     actor_transitions = _ALLOWED_STATUS_TRANSITIONS_BY_ACTOR[actor]
 
     if order.status == status:
