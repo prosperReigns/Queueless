@@ -1,0 +1,13 @@
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { DASHBOARD_PATH_BY_ROLE } from './ProtectedRoute'
+
+export function PublicOnlyRoute() {
+  const { user } = useAuth()
+
+  if (user) {
+    return <Navigate to={DASHBOARD_PATH_BY_ROLE[user.role]} replace />
+  }
+
+  return <Outlet />
+}

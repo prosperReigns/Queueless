@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { LoginPage } from '../features/auth/pages/LoginPage'
 import { RegisterPage } from '../features/auth/pages/RegisterPage'
 import { CustomerDashboardPage } from '../features/dashboard/pages/CustomerDashboardPage'
@@ -17,20 +17,24 @@ import { DashboardLayout } from '../layouts/DashboardLayout'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { UnauthorizedPage } from '../pages/UnauthorizedPage'
 import { ProtectedRoute } from './ProtectedRoute'
+import { PublicOnlyRoute } from './PublicOnlyRoute'
 
 export function AppRouter() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route index element={<StoresPage />} />
-        <Route path="stores/:storeId" element={<StoreDetailsPage />} />
-        <Route path="cart" element={<CartPage />} />
-        <Route path="checkout" element={<CheckoutPage />} />
-        <Route path="orders/:orderId/confirmation" element={<OrderConfirmationPage />} />
-        <Route path="orders" element={<MyOrdersPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
+          <Route index element={<StoresPage />} />
+          <Route path="stores/:storeId" element={<StoreDetailsPage />} />
+          <Route path="cart" element={<CartPage />} />
+          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="orders/:orderId/confirmation" element={<OrderConfirmationPage />} />
+          <Route path="orders" element={<MyOrdersPage />} />
+        </Route>
       </Route>
 
-      <Route path="auth">
+      <Route path="auth" element={<PublicOnlyRoute />}>
+        <Route index element={<Navigate to="login" replace />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
       </Route>
