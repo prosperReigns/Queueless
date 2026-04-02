@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from enum import Enum
 import logging
 import uuid
 
@@ -20,6 +21,14 @@ from app.tasks.orders import schedule_order_expiry
 
 logger = logging.getLogger(__name__)
 
+
+class OrderStatusTransitionActor(str, Enum):
+    """Actor initiating an order status transition."""
+
+    MERCHANT = "merchant"
+    PAYMENT_WEBHOOK = "payment_webhook"
+
+
 _ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.PENDING: {OrderStatus.PAID, OrderStatus.CANCELLED},
     OrderStatus.PAID: {OrderStatus.PREPARING},
@@ -27,6 +36,17 @@ _ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.READY: {OrderStatus.COMPLETED},
     OrderStatus.COMPLETED: set(),
     OrderStatus.CANCELLED: set(),
+}
+
+_ACTOR_ALLOWED_TRANSITIONS: dict[OrderStatusTransitionActor, dict[OrderStatus, set[OrderStatus]]] = {
+    OrderStatusTransitionActor.PAYMENT_WEBHOOK: {
+        OrderStatus.PENDING: {OrderStatus.PAID},
+    },
+    OrderStatusTransitionActor.MERCHANT: {
+        OrderStatus.PAID: {OrderStatus.PREPARING},
+        OrderStatus.PREPARING: {OrderStatus.READY},
+        OrderStatus.READY: {OrderStatus.COMPLETED},
+    },
 }
 
 
@@ -125,7 +145,13 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     return order
 
 
-def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order:
+def update_order_status(
+    db: Session,
+    order: Order,
+    status: OrderStatus,
+    *,
+    actor: OrderStatusTransitionActor,
+) -> Order:
     """Update an order status if the transition is valid."""
     if order.status == status:
         logger.info(
@@ -153,6 +179,24 @@ def update_order_status(db: Session, order: Order, status: OrderStatus) -> Order
         )
         raise ValueError(
             f"Invalid order status transition: {order.status.value} -> {status.value}."
+        )
+
+    actor_allowed_next_statuses = _ACTOR_ALLOWED_TRANSITIONS.get(actor, {}).get(order.status, set())
+    if status not in actor_allowed_next_statuses:
+        logger.warning(
+            "Order status update failed: actor not allowed for transition.",
+            extra={
+                "event": "order_status_update_failed",
+                "order_id": order.id,
+                "from_status": previous_status.value,
+                "to_status": status.value,
+                "actor": actor.value,
+                "reason": "actor_forbidden_transition",
+            },
+        )
+        raise ValueError(
+            f"{actor.value} cannot perform order status transition: "
+            f"{order.status.value} -> {status.value}."
         )
 
     order.status = status
