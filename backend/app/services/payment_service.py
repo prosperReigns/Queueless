@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.models.order import Order, OrderStatus
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.user import User
+from app.tasks.notifications import queue_order_notification
 
 
 def get_payment_by_reference(db: Session, reference: str) -> Payment | None:
@@ -161,6 +162,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
     if order is not None and order.status == OrderStatus.PENDING:
         order.status = OrderStatus.PAID
         db.add(order)
+        queue_order_notification(order.id, "order_paid")
 
     db.commit()
     return (True, "processed")
