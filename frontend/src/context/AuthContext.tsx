@@ -6,7 +6,7 @@ import { clearStoredAuth, getInitialAuthState, storeToken } from './authStorage'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(() => getInitialAuthState())
-  const [isInitializing, setIsInitializing] = useState(() => Boolean(getInitialAuthState().token))
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
 
   useEffect(() => {
     if (!state.token || state.user) {
@@ -20,13 +20,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = await meRequest()
         if (!cancelled) {
           setState((currentState) => ({ ...currentState, user }))
-          setIsInitializing(false)
         }
       } catch {
         if (!cancelled) {
           clearStoredAuth()
           setState({ user: null, token: null })
-          setIsInitializing(false)
         }
       }
     })()
@@ -40,22 +38,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...state,
       role: state.user?.role ?? null,
-      isInitializing,
+      isInitializing: Boolean(state.token && !state.user),
       login: async (email: string, password: string): Promise<AuthUser> => {
-        const tokenPair = await loginRequest({ email, password })
-        storeToken(tokenPair.access_token)
-        const user = await meRequest()
-        setState({ user, token: tokenPair.access_token })
-        setIsInitializing(false)
-        return user
+        if (isAuthenticating) {
+          throw new Error('Please wait for the current login attempt to complete')
+        }
+
+        setIsAuthenticating(true)
+
+        try {
+          const tokenPair = await loginRequest({ email, password })
+          storeToken(tokenPair.access_token)
+          const user = await meRequest()
+          setState({ user, token: tokenPair.access_token })
+          return user
+        } catch (error) {
+          clearStoredAuth()
+          setState({ user: null, token: null })
+          throw error
+        } finally {
+          setIsAuthenticating(false)
+        }
       },
       logout: () => {
         clearStoredAuth()
         setState({ user: null, token: null })
-        setIsInitializing(false)
       },
     }),
-    [isInitializing, state],
+    [isAuthenticating, state],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

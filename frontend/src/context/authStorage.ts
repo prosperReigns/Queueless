@@ -14,11 +14,10 @@ export const storeToken = (token: string) => {
 }
 
 export const getStoredToken = () => {
-  if (inMemoryToken) {
-    return inMemoryToken
+  const persistedToken = localStorage.getItem(TOKEN_KEY)
+  if (inMemoryToken !== persistedToken) {
+    inMemoryToken = persistedToken
   }
-
-  inMemoryToken = localStorage.getItem(TOKEN_KEY)
   return inMemoryToken
 }
 
