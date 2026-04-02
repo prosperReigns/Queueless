@@ -2,8 +2,6 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { loginRequest, meRequest } from '../../../api/auth'
-import { clearStoredAuth, storeToken } from '../../../context/authStorage'
 import { useAuth } from '../../../hooks/useAuth'
 import { DASHBOARD_PATH_BY_ROLE } from '../../../routes/dashboardPaths'
 
@@ -21,13 +19,9 @@ export function LoginPage() {
     setError(null)
 
     try {
-      const tokenPair = await loginRequest({ email, password })
-      storeToken(tokenPair.access_token)
-      const user = await meRequest()
-      login(user, tokenPair.access_token)
+      const user = await login(email, password)
       navigate(DASHBOARD_PATH_BY_ROLE[user.role], { replace: true })
     } catch (error) {
-      clearStoredAuth()
       if (axios.isAxiosError<{ detail?: string }>(error)) {
         setError(error.response?.data?.detail ?? 'Unable to sign in. Please try again.')
       } else {

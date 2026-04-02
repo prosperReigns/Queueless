@@ -3,7 +3,8 @@ import type { AuthState, AuthUser, UserRole } from '../types/auth'
 
 export interface AuthContextValue extends AuthState {
   role: UserRole | null
-  login: (user: AuthUser, token: string) => void
+  isInitializing: boolean
+  login: (email: string, password: string) => Promise<AuthUser>
   logout: () => void
 }
 

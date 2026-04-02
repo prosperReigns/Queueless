@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AuthContext } from './AuthContextValue'
 import type { AuthState, AuthUser } from '../types/auth'
-import { meRequest } from '../api/auth'
+import { loginRequest, meRequest } from '../api/auth'
 import { clearStoredAuth, getInitialAuthState, storeToken } from './authStorage'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(() => getInitialAuthState())
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
 
   useEffect(() => {
     if (!state.token || state.user) {
@@ -37,16 +38,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...state,
       role: state.user?.role ?? null,
-      login: (user: AuthUser, token: string) => {
-        storeToken(token)
-        setState({ user, token })
+      isInitializing: Boolean(state.token && !state.user),
+      login: async (email: string, password: string): Promise<AuthUser> => {
+        if (isAuthenticating) {
+          throw new Error('Please wait for the current login attempt to complete')
+        }
+
+        setIsAuthenticating(true)
+
+        try {
+          const tokenPair = await loginRequest({ email, password })
+          storeToken(tokenPair.access_token)
+          const user = await meRequest()
+          setState({ user, token: tokenPair.access_token })
+          return user
+        } catch (error) {
+          clearStoredAuth()
+          setState({ user: null, token: null })
+          throw error
+        } finally {
+          setIsAuthenticating(false)
+        }
       },
       logout: () => {
         clearStoredAuth()
         setState({ user: null, token: null })
       },
     }),
-    [state],
+    [isAuthenticating, state],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
