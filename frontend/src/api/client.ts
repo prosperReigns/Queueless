@@ -41,9 +41,18 @@ const performRefresh = async (): Promise<string | null> => {
       '/auth/refresh',
       { refresh_token: refreshToken },
     )
-    storeTokens(data.access_token, data.refresh_token ?? refreshToken)
+
+    if (!data.refresh_token) {
+      clearStoredAuth()
+      return null
+    }
+
+    storeTokens(data.access_token, data.refresh_token)
     return data.access_token
-  } catch {
+  } catch (refreshError) {
+    if (import.meta.env.DEV) {
+      console.error('Token refresh failed', refreshError)
+    }
     clearStoredAuth()
     return null
   }
