@@ -40,6 +40,13 @@ _ALLOWED_STATUS_TRANSITIONS_BY_ACTOR: dict[str, dict[OrderStatus, set[OrderStatu
 }
 
 
+def emit_order_status_side_effects(order: Order, *, notification_event: str | None = None) -> None:
+    """Emit notification and websocket side effects for an order status change."""
+    event = notification_event or f"order_status_{order.status.value}"
+    queue_order_notification(order.id, event)
+    publish_customer_status_update(order.user_id, order)
+
+
 def get_order_by_id(db: Session, order_id: int) -> Order | None:
     """Return an order by id with items eagerly loaded."""
     stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
@@ -194,8 +201,7 @@ def update_order_status(
         db.commit()
         db.refresh(order)
     if emit_side_effects:
-        queue_order_notification(order.id, f"order_status_{order.status.value}")
-        publish_customer_status_update(order.user_id, order)
+        emit_order_status_side_effects(order)
     logger.info(
         "Order status updated.",
         extra={

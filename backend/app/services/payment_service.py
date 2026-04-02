@@ -16,9 +16,7 @@ from app.core.config import get_settings
 from app.models.order import Order, OrderStatus
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.user import User
-from app.services.order_service import update_order_status
-from app.services.websocket_service import publish_customer_status_update
-from app.tasks.notifications import queue_order_notification
+from app.services.order_service import emit_order_status_side_effects, update_order_status
 
 logger = logging.getLogger(__name__)
 
@@ -304,8 +302,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, s
             commit=False,
             emit_side_effects=False,
         )
-        queue_order_notification(order.id, "order_paid")
-        publish_customer_status_update(order.user_id, order)
+        emit_order_status_side_effects(order, notification_event="order_paid")
         logger.info(
             "Order marked paid from payment webhook.",
             extra={
