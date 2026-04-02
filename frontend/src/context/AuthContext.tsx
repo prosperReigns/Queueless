@@ -1,42 +1,48 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AuthContext } from './AuthContextValue'
 import type { AuthState, AuthUser } from '../types/auth'
-
-const TOKEN_KEY = 'queueless_token'
-const USER_KEY = 'queueless_user'
-
-const getInitialState = (): AuthState => {
-  const token = localStorage.getItem(TOKEN_KEY)
-  const savedUser = localStorage.getItem(USER_KEY)
-
-  if (!token || !savedUser) {
-    return { user: null, token: null }
-  }
-
-  try {
-    return { user: JSON.parse(savedUser) as AuthUser, token }
-  } catch {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    return { user: null, token: null }
-  }
-}
+import { meRequest } from '../api/auth'
+import { clearStoredAuth, getInitialAuthState, storeToken } from './authStorage'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>(() => getInitialState())
+  const [state, setState] = useState<AuthState>(() => getInitialAuthState())
+
+  useEffect(() => {
+    if (!state.token || state.user) {
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const user = await meRequest()
+        if (!cancelled) {
+          setState((currentState) => ({ ...currentState, user }))
+        }
+      } catch {
+        if (!cancelled) {
+          clearStoredAuth()
+          setState({ user: null, token: null })
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [state.token, state.user])
 
   const value = useMemo(
     () => ({
       ...state,
       role: state.user?.role ?? null,
       login: (user: AuthUser, token: string) => {
-        localStorage.setItem(TOKEN_KEY, token)
-        localStorage.setItem(USER_KEY, JSON.stringify(user))
+        storeToken(token)
         setState({ user, token })
       },
       logout: () => {
-        localStorage.removeItem(TOKEN_KEY)
-        localStorage.removeItem(USER_KEY)
+        clearStoredAuth()
         setState({ user: null, token: null })
       },
     }),

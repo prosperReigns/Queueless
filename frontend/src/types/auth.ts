@@ -2,7 +2,7 @@ export type UserRole = 'CUSTOMER' | 'MERCHANT' | 'ADMIN'
 
 export interface AuthUser {
   id: string
-  name: string
+  email: string
   role: UserRole
 }
 

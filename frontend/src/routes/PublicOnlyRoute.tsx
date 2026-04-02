@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { DASHBOARD_PATH_BY_ROLE } from './ProtectedRoute'
+import { DASHBOARD_PATH_BY_ROLE } from './dashboardPaths'
 
 export function PublicOnlyRoute() {
   const { user } = useAuth()
