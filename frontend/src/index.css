@@ -133,3 +133,43 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.cart-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cart-quantity-input {
+  display: block;
+  margin-top: 0.35rem;
+  width: 90px;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.checkout-summary {
+  margin-top: 1rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.875rem;
+}
+
+.checkout-summary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.qr-card {
+  margin-top: 1rem;
+}
+
+.qr-image {
+  display: block;
+  width: min(100%, 320px);
+  aspect-ratio: 1 / 1;
+  margin-top: 0.75rem;
+}

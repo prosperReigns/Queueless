@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { Link, useParams } from 'react-router-dom'
 import { ProductCard } from '../../../components/cards/ProductCard'
+import { useCart } from '../../../hooks/useCart'
 import { getStoreRequest, listStoreProductsRequest } from '../../../api/stores'
 
 const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/
 
 export function StoreDetailsPage() {
+  const { addToCart, storeId: cartStoreId } = useCart()
   const { storeId } = useParams<{ storeId: string }>()
   const isValidStoreId = typeof storeId === 'string' && POSITIVE_INTEGER_PATTERN.test(storeId)
   const parsedStoreId: number | null = isValidStoreId ? Number(storeId) : null
@@ -103,13 +105,21 @@ export function StoreDetailsPage() {
           {!isProductsLoading && !isProductsError && products && products.length > 0 ? (
             <div className="product-grid">
               {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  name={product.name}
-                  price={product.price}
-                  description={product.description}
-                  isAvailable={product.is_available}
-                />
+                <article key={product.id} className="product-card">
+                  <ProductCard
+                    name={product.name}
+                    price={product.price}
+                    description={product.description}
+                    isAvailable={product.is_available}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addToCart({ product })}
+                    disabled={!product.is_available}
+                  >
+                    {cartStoreId && cartStoreId !== product.store_id ? 'Switch store cart & add item' : 'Add to cart'}
+                  </button>
+                </article>
               ))}
             </div>
           ) : null}
