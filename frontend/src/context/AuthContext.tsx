@@ -1,11 +1,6 @@
-import { createContext, useMemo, useState } from 'react'
-import type { AuthState, AuthUser, UserRole } from '../types/auth'
-
-interface AuthContextValue extends AuthState {
-  role: UserRole | null
-  login: (user: AuthUser, token: string) => void
-  logout: () => void
-}
+import { useMemo, useState } from 'react'
+import { AuthContext } from './auth-context'
+import type { AuthState, AuthUser } from '../types/auth'
 
 const TOKEN_KEY = 'queueless_token'
 const USER_KEY = 'queueless_user'
@@ -27,16 +22,14 @@ const getInitialState = (): AuthState => {
   }
 }
 
-export const AuthContext = createContext<AuthContextValue | null>(null)
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(() => getInitialState())
 
-  const value = useMemo<AuthContextValue>(
+  const value = useMemo(
     () => ({
       ...state,
       role: state.user?.role ?? null,
-      login: (user, token) => {
+      login: (user: AuthUser, token: string) => {
         localStorage.setItem(TOKEN_KEY, token)
         localStorage.setItem(USER_KEY, JSON.stringify(user))
         setState({ user, token })
