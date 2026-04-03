@@ -9,6 +9,10 @@ const parseOrderId = (value: string): number | null => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
 
+type DetectedBarcode = { rawValue?: string }
+type QRBarcodeDetector = { detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]> }
+type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => QRBarcodeDetector
+
 export function MerchantQrVerificationPage() {
   const queryClient = useQueryClient()
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -102,7 +106,9 @@ export function MerchantQrVerificationPage() {
   }
 
   const handleScan = async () => {
-    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
+    const barcodeDetectorCtor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector
+
+    if (!barcodeDetectorCtor) {
       setScanMessage('QR scan is not supported in this browser. Use QR payload or order ID.')
       return
     }
@@ -113,7 +119,7 @@ export function MerchantQrVerificationPage() {
     }
 
     try {
-      const detector = new BarcodeDetector({ formats: ['qr_code'] })
+      const detector = new barcodeDetectorCtor({ formats: ['qr_code'] })
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       streamRef.current = stream
       setIsScannerOpen(true)
