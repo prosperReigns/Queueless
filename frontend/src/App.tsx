@@ -11,6 +11,8 @@ import {
   requestPushPermission,
 } from './services/firebase'
 
+const MAX_IN_APP_NOTIFICATIONS = 5
+
 interface InAppNotification {
   id: string
   title: string
@@ -18,14 +20,10 @@ interface InAppNotification {
   orderId: string | null
 }
 
-function toInAppNotification(payload: MessagePayload): InAppNotification | null {
+function toInAppNotification(payload: MessagePayload): InAppNotification {
   const title = payload.notification?.title ?? payload.data?.title ?? 'Notification'
   const body = payload.notification?.body ?? payload.data?.body ?? 'You have a new update.'
   const orderId = payload.data?.order_id ?? null
-
-  if (!title && !body) {
-    return null
-  }
 
   return {
     id: crypto.randomUUID(),
@@ -110,10 +108,9 @@ function App() {
 
         unsubscribe = await listenForForegroundMessages((payload) => {
           const inAppNotification = toInAppNotification(payload)
-          if (!inAppNotification) {
-            return
-          }
-          setNotifications((current) => [inAppNotification, ...current].slice(0, 5))
+          setNotifications((current) =>
+            [inAppNotification, ...current].slice(0, MAX_IN_APP_NOTIFICATIONS),
+          )
         })
       } catch (error) {
         if (import.meta.env.DEV) {
