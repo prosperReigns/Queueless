@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -51,7 +50,6 @@ def _normalize_phone_number(phone_number: str | None) -> str | None:
     return normalized or None
 
 
-@lru_cache
 def _initialize_firebase_app() -> firebase_admin.App | None:
     """Initialize Firebase app once if credentials are configured."""
     settings = get_settings()
@@ -94,13 +92,15 @@ def _get_optional_user_contact_fields(db_user_id: str) -> tuple[str | None, str 
         if not columns:
             return (None, None)
 
-        selected = ["id"]
-        if "fcm_token" in columns:
-            selected.append("fcm_token")
-        if "phone_number" in columns:
-            selected.append("phone_number")
+        if {"fcm_token", "phone_number"}.issubset(columns):
+            stmt = text("SELECT fcm_token, phone_number FROM users WHERE id::text = :user_id")
+        elif "fcm_token" in columns:
+            stmt = text("SELECT fcm_token FROM users WHERE id::text = :user_id")
+        elif "phone_number" in columns:
+            stmt = text("SELECT phone_number FROM users WHERE id::text = :user_id")
+        else:
+            return (None, None)
 
-        stmt = text(f"SELECT {', '.join(selected)} FROM users WHERE id::text = :user_id")
         result = db.execute(stmt, {"user_id": db_user_id}).mappings().first()
         if result is None:
             return (None, None)
@@ -166,8 +166,17 @@ def _send_fcm_notification(*, token: str, title: str, body: str, data: dict[str,
         )
         messaging.send(message, app=app)
         return True
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Failed to send FCM notification.", exc_info=exc)
+    except messaging.UnregisteredError as exc:
+        logger.info("FCM token is unregistered; push notification dropped.", exc_info=exc)
+        return False
+    except messaging.QuotaExceededError as exc:
+        logger.warning("FCM quota exceeded while sending notification.", exc_info=exc)
+        return False
+    except ValueError as exc:
+        logger.warning("FCM message payload was invalid.", exc_info=exc)
+        return False
+    except firebase_admin.exceptions.FirebaseError as exc:
+        logger.warning("Firebase error while sending FCM notification.", exc_info=exc)
         return False
 
 
@@ -202,8 +211,8 @@ def _send_termii_sms(*, phone_number: str, message: str) -> bool:
             json=payload,
             timeout=settings.TERMII_TIMEOUT_SECONDS,
         )
-    except httpx.HTTPError as exc:
-        logger.warning("Failed to send SMS via Termii due to network/provider error.", exc_info=exc)
+    except httpx.RequestError as exc:
+        logger.warning("Failed to send SMS via Termii due to network error.", exc_info=exc)
         return False
 
     if response.status_code >= 400:
@@ -216,6 +225,7 @@ def _send_termii_sms(*, phone_number: str, message: str) -> bool:
         logger.warning("Termii returned non-JSON SMS response.")
         return False
 
+    # Termii responses vary by route/version; accept common success markers.
     if body.get("code") and str(body.get("code")).startswith("ok"):
         return True
     if body.get("message_id"):
@@ -225,6 +235,13 @@ def _send_termii_sms(*, phone_number: str, message: str) -> bool:
 
     logger.warning("Termii SMS response did not indicate success.")
     return False
+
+
+def _attempt_sms_fallback(*, push_sent: bool, event: str, target: NotificationTarget, message: str) -> tuple[bool, bool]:
+    """Attempt SMS fallback and return (attempted, sent)."""
+    if push_sent or not _should_send_sms(event) or not target.phone_number:
+        return (False, False)
+    return (True, _send_termii_sms(phone_number=target.phone_number, message=message))
 
 
 @celery_app.task(
@@ -258,11 +275,12 @@ def send_order_notification_task(self, order_id: int, event: str) -> dict[str, s
     if target.fcm_token:
         push_sent = _send_fcm_notification(token=target.fcm_token, title=title, body=body, data=data)
 
-    sms_attempted = False
-    sms_sent = False
-    if (not push_sent) and _should_send_sms(event) and target.phone_number:
-        sms_attempted = True
-        sms_sent = _send_termii_sms(phone_number=target.phone_number, message=body)
+    sms_attempted, sms_sent = _attempt_sms_fallback(
+        push_sent=push_sent,
+        event=event,
+        target=target,
+        message=body,
+    )
 
     if push_sent:
         status = "delivered_fcm"

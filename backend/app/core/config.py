@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     FIREBASE_CREDENTIALS_JSON: str | None = None
     FIREBASE_CREDENTIALS_PATH: str | None = None
     TERMII_API_KEY: str | None = None
-    TERMII_BASE_URL: str = "https://api.ng.termii.com"
+    TERMII_BASE_URL: str = "https://api.ng.termii.com"  # Override for other Termii regional endpoints if needed.
     TERMII_SENDER_ID: str = "Queueless"
     TERMII_CHANNEL: str = "generic"
     TERMII_SEND_ORDER_READY_SMS: bool = False
