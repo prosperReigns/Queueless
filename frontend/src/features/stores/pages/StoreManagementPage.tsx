@@ -4,6 +4,7 @@ import axios from 'axios'
 import {
   createStoreRequest,
   listStoresRequest,
+  type StoreUpdateRequest,
   updateStoreRequest,
   type Store,
   type StoreCreateRequest,
@@ -63,7 +64,7 @@ export function StoreManagementPage() {
   })
 
   const updateStoreMutation = useMutation({
-    mutationFn: ({ storeId, payload }: { storeId: number; payload: Parameters<typeof updateStoreRequest>[1] }) =>
+    mutationFn: ({ storeId, payload }: { storeId: number; payload: StoreUpdateRequest }) =>
       updateStoreRequest(storeId, payload),
     onSuccess: async (updatedStore) => {
       await queryClient.invalidateQueries({ queryKey: ['stores'] })
@@ -133,7 +134,6 @@ export function StoreManagementPage() {
       name: trimmedName,
       description: trimmedDescription || null,
       location: trimmedLocation || null,
-      is_active: true,
     }
   }
 
