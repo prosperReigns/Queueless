@@ -6,6 +6,7 @@ import { MerchantDashboardPage } from '../features/dashboard/pages/MerchantDashb
 import { AdminDashboardPage } from '../features/dashboard/pages/AdminDashboardPage'
 import { CartPage } from '../features/orders/pages/CartPage'
 import { CheckoutPage } from '../features/orders/pages/CheckoutPage'
+import { OrderDetailsPage } from '../features/orders/pages/OrderDetailsPage'
 import { MyOrdersPage } from '../features/orders/pages/MyOrdersPage'
 import { OrderConfirmationPage } from '../features/orders/pages/OrderConfirmationPage'
 import { OrdersManagementPage } from '../features/orders/pages/OrdersManagementPage'
@@ -28,6 +29,7 @@ export function AppRouter() {
           <Route path="stores/:storeId" element={<StoreDetailsPage />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="orders/:orderId" element={<OrderDetailsPage />} />
           <Route path="orders/:orderId/confirmation" element={<OrderConfirmationPage />} />
           <Route path="orders" element={<MyOrdersPage />} />
         </Route>

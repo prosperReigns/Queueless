@@ -42,9 +42,15 @@ export function buildOrderUpdatesSocketUrl(token: string) {
 export function subscribeToOrderUpdates(options: {
   token: string
   onOrderEvent: (event: OrderSocketEvent) => void
+  onOpen?: () => void
+  onClose?: () => void
   onError?: () => void
 }) {
   const socket = createOrderUpdatesSocket(buildOrderUpdatesSocketUrl(options.token))
+
+  socket.onopen = () => {
+    options.onOpen?.()
+  }
 
   socket.onmessage = (event) => {
     try {
@@ -59,6 +65,10 @@ export function subscribeToOrderUpdates(options: {
 
   socket.onerror = () => {
     options.onError?.()
+  }
+
+  socket.onclose = () => {
+    options.onClose?.()
   }
 
   return () => {
