@@ -54,10 +54,7 @@ def expire_unpaid_order_task(self, order_id: int) -> str:  # noqa: ARG001
             order,
             OrderStatus.CANCELLED,
             actor=OrderStatusTransitionActor.SYSTEM,
-            commit=False,
         )
-        db.commit()
-        db.refresh(order)
         return "expired"
 
 
