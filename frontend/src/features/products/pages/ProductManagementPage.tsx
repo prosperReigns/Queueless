@@ -173,13 +173,13 @@ export function ProductManagementPage() {
       return
     }
 
-    const normalizedPriceInput = formState.price.trim()
-    if (normalizedPriceInput === '') {
+    const trimmedPrice = formState.price.trim()
+    if (trimmedPrice === '') {
       setFormError('Price is required.')
       return
     }
 
-    const parsedPrice = Number(normalizedPriceInput)
+    const parsedPrice = Number(trimmedPrice)
     if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
       setFormError('Price must be a valid number greater than or equal to 0.')
       return
