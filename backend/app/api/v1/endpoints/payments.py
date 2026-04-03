@@ -48,7 +48,7 @@ def initiate_payment(
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
-@limiter.limit(settings.RATE_LIMIT_PAYMENTS)
+@limiter.limit(settings.RATE_LIMIT_PAYMENT_WEBHOOK)
 async def paystack_webhook(
     request: Request,
     db: Session = Depends(get_db),

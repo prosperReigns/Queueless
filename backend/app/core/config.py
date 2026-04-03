@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "20/minute"
     RATE_LIMIT_ORDER_CREATE: str = "10/minute"
     RATE_LIMIT_PAYMENTS: str = "20/minute"
+    RATE_LIMIT_PAYMENT_WEBHOOK: str = "300/minute"
     CELERY_BROKER_URL: str | None = None
     CELERY_RESULT_BACKEND: str | None = None
     CELERY_TASK_ALWAYS_EAGER: bool = False

@@ -39,7 +39,7 @@ class RequestUserMiddleware(BaseHTTPMiddleware):
                 sub = payload.get("sub")
                 if sub is not None:
                     request.state.user = get_user_by_id(db, uuid.UUID(str(sub)))
-            except (ValueError, TypeError):
+            except Exception:
                 request.state.user = None
             finally:
                 db.close()
