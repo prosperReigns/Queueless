@@ -44,7 +44,6 @@ export function ProductManagementPage() {
   const [editingProductId, setEditingProductId] = useState<number | null>(null)
   const [formState, setFormState] = useState<ProductFormState>(INITIAL_FORM_STATE)
   const [formError, setFormError] = useState<string | null>(null)
-  const [deletePendingProductId, setDeletePendingProductId] = useState<number | null>(null)
 
   const storesQuery = useQuery({
     queryKey: ['stores'],
@@ -94,7 +93,6 @@ export function ProductManagementPage() {
       if (activeStoreId !== null) {
         await queryClient.invalidateQueries({ queryKey: ['store-products', activeStoreId] })
       }
-      setDeletePendingProductId(null)
     },
   })
 
@@ -141,6 +139,10 @@ export function ProductManagementPage() {
     setEditingProductId(null)
     setFormState(INITIAL_FORM_STATE)
     setFormError(null)
+    createProductMutation.reset()
+    updateProductMutation.reset()
+    deleteProductMutation.reset()
+    availabilityMutation.reset()
   }
 
   const onEditClick = (product: Product) => {
@@ -360,7 +362,7 @@ export function ProductManagementPage() {
             {!productsQuery.isLoading && !productsQuery.isError && productsQuery.data && productsQuery.data.length > 0 ? (
               <div className="product-grid">
                 {productsQuery.data.map((product) => {
-                  const isDeleting = deleteProductMutation.isPending && deletePendingProductId === product.id
+                  const isDeleting = deleteProductMutation.isPending && deleteProductMutation.variables === product.id
                   const isUpdatingAvailability = availabilityMutation.isPending && availabilityMutation.variables?.productId === product.id
                   return (
                     <article key={product.id} className="product-card">
@@ -394,7 +396,6 @@ export function ProductManagementPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setDeletePendingProductId(product.id)
                             deleteProductMutation.mutate(product.id)
                           }}
                           disabled={isDeleting}
