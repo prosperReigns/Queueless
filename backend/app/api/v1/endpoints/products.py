@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access, require_roles
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.services.cache_service import cache_service
 from app.services.product_service import (
