@@ -28,10 +28,12 @@ logger = logging.getLogger(__name__)
 @router.get("/stores/{store_id}/products", response_model=list[ProductResponse])
 def get_store_products(store_id: int, db: Session = Depends(get_db)) -> list[ProductResponse]:
     """List products for a store."""
+    response: list[ProductResponse]
     cached = cache_service.get_json(cache_service.store_products_key(store_id))
     if cached is not None:
         try:
-            return [ProductResponse.model_validate(product) for product in cached]
+            response = [ProductResponse.model_validate(product) for product in cached]
+            return response
         except ValidationError:
             logger.warning(
                 "Invalid product list cache payload for store_id=%s. Rebuilding cache.",

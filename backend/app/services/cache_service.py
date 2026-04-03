@@ -79,9 +79,14 @@ class CacheService:
         if client is None:
             return
         try:
-            keys = list(self._iter_keys(client, pattern))
-            if keys:
-                client.delete(*keys)
+            batch: list[str] = []
+            for key in self._iter_keys(client, pattern):
+                batch.append(key)
+                if len(batch) >= 100:
+                    client.delete(*batch)
+                    batch.clear()
+            if batch:
+                client.delete(*batch)
         except RedisError:
             logger.warning("Cache delete by pattern failed for '%s'.", pattern, exc_info=True)
 
