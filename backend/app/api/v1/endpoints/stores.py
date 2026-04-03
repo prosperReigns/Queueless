@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access, require_roles
 from app.models.user import User
 from app.schemas.store import StoreCreate, StoreResponse, StoreUpdate
+from app.services.cache_service import cache_service
 from app.services.store_service import (
     create_store,
     delete_store,
@@ -22,8 +23,17 @@ router = APIRouter(prefix="/stores", tags=["stores"])
 @router.get("", response_model=list[StoreResponse])
 def get_stores(db: Session = Depends(get_db)) -> list[StoreResponse]:
     """List stores."""
+    cached = cache_service.get_json(cache_service.store_list_key())
+    if cached is not None:
+        return [StoreResponse.model_validate(store) for store in cached]
+
     stores = list_stores(db)
-    return [StoreResponse.model_validate(store) for store in stores]
+    response = [StoreResponse.model_validate(store) for store in stores]
+    cache_service.set_json(
+        cache_service.store_list_key(),
+        [store.model_dump(mode="json") for store in response],
+    )
+    return response
 
 
 @router.post("", response_model=StoreResponse, status_code=status.HTTP_201_CREATED)
@@ -60,6 +70,8 @@ def update_store_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
     role_scope.enforce_merchant_scope(store.owner_id)
     updated = update_store(db, store, payload)
+    cache_service.invalidate_store_list()
+    cache_service.invalidate_store_products(store_id)
     return StoreResponse.model_validate(updated)
 
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access, require_roles
 from app.models.user import User
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
+from app.services.cache_service import cache_service
 from app.services.product_service import (
     create_product,
     delete_product,
@@ -23,11 +24,20 @@ router = APIRouter(tags=["products"])
 @router.get("/stores/{store_id}/products", response_model=list[ProductResponse])
 def get_store_products(store_id: int, db: Session = Depends(get_db)) -> list[ProductResponse]:
     """List products for a store."""
+    cached = cache_service.get_json(cache_service.store_products_key(store_id))
+    if cached is not None:
+        return [ProductResponse.model_validate(product) for product in cached]
+
     store = get_store_by_id(db, store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
     products = list_products_by_store(db, store_id)
-    return [ProductResponse.model_validate(product) for product in products]
+    response = [ProductResponse.model_validate(product) for product in products]
+    cache_service.set_json(
+        cache_service.store_products_key(store_id),
+        [product.model_dump(mode="json") for product in response],
+    )
+    return response
 
 
 @router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
@@ -43,6 +53,7 @@ def create_product_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
     role_scope.enforce_merchant_scope(store.owner_id)
     product = create_product(db, payload)
+    cache_service.invalidate_store_products(payload.store_id)
     return ProductResponse.model_validate(product)
 
 
@@ -66,6 +77,7 @@ def update_product_endpoint(
         )
     role_scope.enforce_merchant_scope(store.owner_id)
     updated = update_product(db, product, payload)
+    cache_service.invalidate_store_products(product.store_id)
     return ProductResponse.model_validate(updated)
 
 
@@ -87,5 +99,6 @@ def delete_product_endpoint(
             detail="Store associated with this product was not found.",
         )
     role_scope.enforce_merchant_scope(store.owner_id)
+    cache_service.invalidate_store_products(product.store_id)
     delete_product(db, product)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
