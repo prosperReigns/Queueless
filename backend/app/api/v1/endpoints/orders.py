@@ -88,11 +88,13 @@ def get_order_endpoint(
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
 
-    store = get_store_by_id(db, order.store_id)
-    role_scope.enforce(
-        customer_id=order.user_id,
-        merchant_owner_id=store.owner_id if store is not None else None,
-    )
+    if role_scope.user.role == UserRole.CUSTOMER:
+        role_scope.enforce_customer_scope(order.user_id)
+    elif role_scope.user.role == UserRole.MERCHANT:
+        store = get_store_by_id(db, order.store_id)
+        if store is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
+        role_scope.enforce_merchant_scope(store.owner_id)
 
     return OrderResponse.model_validate(order)
 
@@ -113,7 +115,7 @@ def update_order_status_endpoint(
     store = get_store_by_id(db, order.store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
-    role_scope.enforce(merchant_owner_id=store.owner_id)
+    role_scope.enforce_merchant_scope(store.owner_id)
 
     try:
         updated = update_order_status(

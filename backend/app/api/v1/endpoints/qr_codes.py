@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access
+from app.models.user import UserRole
 from app.schemas.qr_code import (
     QRCodeResponse,
     QRCodeValidationRequest,
@@ -26,15 +29,18 @@ router = APIRouter(prefix="/qr-codes", tags=["qr-codes"])
 def _authorize_order_access(
     db: Session,
     role_scope: RoleScopeAccess,
-    order_user_id: object,
+    order_user_id: uuid.UUID,
     order_store_id: int,
 ) -> None:
     """Authorize access to a specific order by role policy."""
-    store = get_store_by_id(db, order_store_id)
-    role_scope.enforce(
-        customer_id=order_user_id,
-        merchant_owner_id=store.owner_id if store is not None else None,
-    )
+    if role_scope.user.role == UserRole.CUSTOMER:
+        role_scope.enforce_customer_scope(order_user_id)
+        return
+    if role_scope.user.role == UserRole.MERCHANT:
+        store = get_store_by_id(db, order_store_id)
+        if store is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
+        role_scope.enforce_merchant_scope(store.owner_id)
 
 
 @router.get("/orders/{order_id}", response_model=QRCodeResponse)

@@ -58,7 +58,7 @@ def update_store_endpoint(
     store = get_store_by_id(db, store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
-    role_scope.enforce(merchant_owner_id=store.owner_id)
+    role_scope.enforce_merchant_scope(store.owner_id)
     updated = update_store(db, store, payload)
     return StoreResponse.model_validate(updated)
 
@@ -74,6 +74,6 @@ def delete_store_endpoint(
     store = get_store_by_id(db, store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
-    role_scope.enforce(merchant_owner_id=store.owner_id)
+    role_scope.enforce_merchant_scope(store.owner_id)
     delete_store(db, store)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

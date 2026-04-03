@@ -25,16 +25,20 @@ class RoleScopeAccess:
     def __init__(self, user: User) -> None:
         self.user = user
 
-    def enforce(
-        self,
-        *,
-        customer_id: uuid.UUID | None = None,
-        merchant_owner_id: uuid.UUID | None = None,
-    ) -> None:
-        """Enforce role policy for a resource scope."""
+    def enforce_customer_scope(self, customer_id: uuid.UUID) -> None:
+        """Allow admin or the matching customer."""
         if self.user.role == UserRole.ADMIN:
             return
         if self.user.role == UserRole.CUSTOMER and customer_id == self.user.id:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions.",
+        )
+
+    def enforce_merchant_scope(self, merchant_owner_id: uuid.UUID) -> None:
+        """Allow admin or the matching merchant store owner."""
+        if self.user.role == UserRole.ADMIN:
             return
         if self.user.role == UserRole.MERCHANT and merchant_owner_id == self.user.id:
             return
