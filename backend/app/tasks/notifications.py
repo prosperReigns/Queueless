@@ -154,7 +154,7 @@ def _resolve_notification_target(order: OrderContext, event: str) -> Notificatio
         return NotificationTarget(
             user_id=str(recipient.id),
             role=role,
-            fcm_tokens=[token_record.token for token_record in notification_tokens if token_record.token],
+            fcm_tokens=[token_record.token for token_record in notification_tokens],
             phone_number=phone_number,
         )
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.notification_token import NotificationToken
@@ -83,9 +83,7 @@ def delete_notification_tokens_by_values(db: Session, tokens: list[str]) -> int:
     """Delete token records for the given token values and return deleted count."""
     if not tokens:
         return 0
-    stmt = select(NotificationToken).where(NotificationToken.token.in_(tokens))
-    records = list(db.scalars(stmt).all())
-    for record in records:
-        db.delete(record)
+    stmt = delete(NotificationToken).where(NotificationToken.token.in_(tokens))
+    result = db.execute(stmt)
     db.commit()
-    return len(records)
+    return int(result.rowcount or 0)
