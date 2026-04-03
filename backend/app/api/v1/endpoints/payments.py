@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Dict
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
@@ -52,7 +54,7 @@ def initiate_payment(
 async def paystack_webhook(
     request: Request,
     db: Session = Depends(get_db),
-) -> dict[str, str]:
+) -> Dict[str, str]:
     """Handle Paystack webhook with signature verification and idempotency."""
     raw_body = await request.body()
     signature = request.headers.get("x-paystack-signature")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import List
 import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,7 +17,7 @@ class OrderCreate(BaseModel):
     """Request payload for creating an order."""
 
     store_id: int = Field(gt=0)
-    items: list[OrderItemCreate] = Field(min_length=1)
+    items: List[OrderItemCreate] = Field(min_length=1)
 
 
 class OrderStatusUpdate(BaseModel):
@@ -35,6 +36,6 @@ class OrderResponse(BaseModel):
     status: OrderStatus
     payment_reference: str = Field(min_length=1, max_length=255)
     created_at: datetime
-    items: list[OrderItemResponse] = Field(default_factory=list)
+    items: List[OrderItemResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)

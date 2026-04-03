@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, List, Optional
 
 import redis
 from redis import Redis
@@ -26,9 +26,9 @@ class CacheService:
         settings = get_settings()
         self._default_ttl_seconds = default_ttl_seconds
         self._redis_url = settings.REDIS_URL
-        self._client: Redis | None = None
+        self._client: Optional[Redis] = None
 
-    def _get_client(self) -> Redis | None:
+    def _get_client(self) -> Optional[Redis]:
         """Get or lazily build Redis client."""
         if self._client is None:
             try:
@@ -38,7 +38,7 @@ class CacheService:
                 return None
         return self._client
 
-    def get_json(self, key: str) -> Any | None:
+    def get_json(self, key: str) -> Optional[Any]:
         """Return parsed JSON value for a key when present."""
         client = self._get_client()
         if client is None:
@@ -52,7 +52,7 @@ class CacheService:
             logger.warning("Cache read failed for key '%s'.", key, exc_info=True)
             return None
 
-    def set_json(self, key: str, value: Any, *, ttl_seconds: int | None = None) -> None:
+    def set_json(self, key: str, value: Any, *, ttl_seconds: Optional[int] = None) -> None:
         """Store a JSON-serializable value with TTL."""
         client = self._get_client()
         if client is None:
@@ -79,7 +79,7 @@ class CacheService:
         if client is None:
             return
         try:
-            batch: list[str] = []
+            batch: List[str] = []
             for key in self._iter_keys(client, pattern):
                 batch.append(key)
                 if len(batch) >= 100:

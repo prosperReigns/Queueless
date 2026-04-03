@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime
 import logging
 import uuid
-from typing import Any
+from typing import Any, Dict, List, Optional, Set
 
 import anyio
 from fastapi import WebSocket, WebSocketDisconnect
@@ -19,7 +19,7 @@ from app.models.user import UserRole
 logger = logging.getLogger(__name__)
 
 
-def _serialize_order_payload(order: Order, event_type: str) -> dict[str, Any]:
+def _serialize_order_payload(order: Order, event_type: str) -> Dict[str, Any]:
     """Build a JSON-serializable order event payload."""
     created_at = order.created_at
     if isinstance(created_at, datetime):
@@ -42,9 +42,9 @@ class WebSocketConnectionManager:
     """Track and notify active admin/merchant/customer websocket sessions."""
 
     def __init__(self) -> None:
-        self._admin_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
-        self._merchant_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
-        self._customer_connections: dict[uuid.UUID, set[WebSocket]] = defaultdict(set)
+        self._admin_connections: Dict[uuid.UUID, Set[WebSocket]] = defaultdict(set)
+        self._merchant_connections: Dict[uuid.UUID, Set[WebSocket]] = defaultdict(set)
+        self._customer_connections: Dict[uuid.UUID, Set[WebSocket]] = defaultdict(set)
         self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket, *, user_id: uuid.UUID, role: UserRole) -> None:
@@ -90,9 +90,9 @@ class WebSocketConnectionManager:
     async def _broadcast(
         self,
         *,
-        payload: dict[str, Any],
-        merchant_id: uuid.UUID | None = None,
-        customer_id: uuid.UUID | None = None,
+        payload: Dict[str, Any],
+        merchant_id: Optional[uuid.UUID] = None,
+        customer_id: Optional[uuid.UUID] = None,
     ) -> None:
         """Send payload to all active sockets in a target channel."""
         if merchant_id is None and customer_id is None:
@@ -104,13 +104,13 @@ class WebSocketConnectionManager:
             return
 
         async with self._lock:
-            sockets: list[WebSocket] = []
+            sockets: List[WebSocket] = []
             if merchant_id is not None:
                 sockets = list(self._merchant_connections.get(merchant_id, set()))
             elif customer_id is not None:
                 sockets = list(self._customer_connections.get(customer_id, set()))
 
-        disconnected: list[WebSocket] = []
+        disconnected: List[WebSocket] = []
         for socket in sockets:
             try:
                 await socket.send_json(payload)
@@ -135,7 +135,7 @@ class WebSocketConnectionManager:
 
 
 connection_manager = WebSocketConnectionManager()
-_PENDING_NOTIFICATION_TASKS: set[asyncio.Task[None]] = set()
+_PENDING_NOTIFICATION_TASKS: Set[asyncio.Task] = set()
 
 
 def _dispatch_async(
@@ -161,12 +161,12 @@ def _dispatch_async(
     task.add_done_callback(_log_task_exception)
 
 
-def _cleanup_task(task: asyncio.Task[None]) -> None:
+def _cleanup_task(task: asyncio.Task) -> None:
     """Remove completed background task from in-memory tracking."""
     _PENDING_NOTIFICATION_TASKS.discard(task)
 
 
-def _log_task_exception(task: asyncio.Task[None]) -> None:
+def _log_task_exception(task: asyncio.Task) -> None:
     """Log exceptions raised by background websocket notification tasks."""
     if task.cancelled():
         return

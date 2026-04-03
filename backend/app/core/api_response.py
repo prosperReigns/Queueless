@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, Optional
 
 
-def success_response(data: Any = None, message: str = "success") -> dict[str, Any]:
+def success_response(data: Any = None, message: str = "success") -> Dict[str, Any]:
     """Build a standard success API payload."""
     return {
         "success": True,
@@ -19,8 +19,8 @@ def error_response(
     error: str,
     code: str,
     details: Any = None,
-    request_id: str | None = None,
-) -> dict[str, Any]:
+    request_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """Build a standard error API payload."""
     return {
         "success": False,

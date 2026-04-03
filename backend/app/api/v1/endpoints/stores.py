@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import ValidationError
@@ -24,10 +25,10 @@ router = APIRouter(prefix="/stores", tags=["stores"])
 logger = logging.getLogger(__name__)
 
 
-@router.get("", response_model=list[StoreResponse])
-def get_stores(db: Session = Depends(get_db)) -> list[StoreResponse]:
+@router.get("", response_model=List[StoreResponse])
+def get_stores(db: Session = Depends(get_db)) -> List[StoreResponse]:
     """List stores."""
-    response: list[StoreResponse]
+    response: List[StoreResponse]
     cached = cache_service.get_json(cache_service.store_list_key())
     if cached is not None:
         try:

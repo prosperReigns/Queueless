@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -32,16 +34,16 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 settings = get_settings()
 
 
-@router.get("", response_model=list[OrderResponse])
+@router.get("", response_model=List[OrderResponse])
 def list_orders_endpoint(
-    status_filter: OrderStatus | None = Query(default=None, alias="status"),
+    status_filter: Optional[OrderStatus] = Query(default=None, alias="status"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     sort_by: str = Query(default="created_at", pattern="^(created_at|id|total_amount|status)$"),
     sort_order: str = Query(default="desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-) -> list[OrderResponse]:
+) -> List[OrderResponse]:
     """List orders scoped by role with filtering, pagination, and sorting."""
     user_id = None
     store_ids = None

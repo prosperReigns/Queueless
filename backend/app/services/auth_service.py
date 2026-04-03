@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import List, Optional
 import uuid
 
 from sqlalchemy import select
@@ -15,18 +16,18 @@ from app.schemas.token import TokenPair
 from app.schemas.user import UserCreate
 
 
-def get_user_by_email(db: Session, email: str) -> User | None:
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
     """Return a user by email if present."""
     stmt = select(User).where(User.email == email.lower())
     return db.scalar(stmt)
 
 
-def get_user_by_id(db: Session, user_id: uuid.UUID) -> User | None:
+def get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
     """Return a user by id if present."""
     return db.get(User, user_id)
 
 
-def list_users(db: Session) -> list[User]:
+def list_users(db: Session) -> List[User]:
     """Return all users ordered by newest first."""
     stmt = select(User).order_by(User.created_at.desc())
     return list(db.scalars(stmt).all())
@@ -59,7 +60,7 @@ def register_user(db: Session, payload: UserCreate) -> User:
     return user
 
 
-def authenticate_user(db: Session, email: str, password: str) -> User | None:
+def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     """Validate user credentials."""
     user = get_user_by_email(db, email)
     if user is None:

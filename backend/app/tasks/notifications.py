@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import firebase_admin
 import httpx
@@ -30,17 +30,17 @@ from app.tasks.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
+@dataclass
 class NotificationTarget:
     """Resolved recipient metadata for a notification event."""
 
     user_id: str
     role: str
-    fcm_tokens: list[str]
-    phone_number: str | None
+    fcm_tokens: List[str]
+    phone_number: Optional[str]
 
 
-@dataclass(slots=True)
+@dataclass
 class OrderContext:
     """Order data needed for notification routing/content."""
 
@@ -49,7 +49,7 @@ class OrderContext:
     user_id: str
 
 
-@dataclass(slots=True)
+@dataclass
 class SmsFallbackResult:
     """SMS fallback outcome."""
 
@@ -57,7 +57,7 @@ class SmsFallbackResult:
     was_delivered: bool
 
 
-def _normalize_phone_number(phone_number: str | None) -> str | None:
+def _normalize_phone_number(phone_number: Optional[str]) -> Optional[str]:
     """Normalize phone number for SMS provider, keeping leading + when provided."""
     if phone_number is None:
         return None
@@ -65,7 +65,7 @@ def _normalize_phone_number(phone_number: str | None) -> str | None:
     return normalized or None
 
 
-def _initialize_firebase_app() -> firebase_admin.App | None:
+def _initialize_firebase_app() -> Optional[firebase_admin.App]:
     """Initialize Firebase app once if credentials are configured."""
     settings = get_settings()
     try:
@@ -73,7 +73,7 @@ def _initialize_firebase_app() -> firebase_admin.App | None:
     except ValueError:
         pass
 
-    cred: credentials.Base | None = None
+    cred: Optional[credentials.Base] = None
     if settings.FIREBASE_CREDENTIALS_JSON:
         try:
             cred_payload = json.loads(settings.FIREBASE_CREDENTIALS_JSON)
@@ -96,7 +96,7 @@ def _initialize_firebase_app() -> firebase_admin.App | None:
 
 
 @lru_cache
-def _get_phone_number_column_name() -> str | None:
+def _get_phone_number_column_name() -> Optional[str]:
     """Return available optional users phone number column."""
     with SessionLocal() as db:
         columns_stmt = text(
@@ -118,7 +118,7 @@ def _get_phone_number_column_name() -> str | None:
         return "phone_number" if "phone_number" in columns else None
 
 
-def _get_optional_user_phone_number(recipient_id: uuid.UUID) -> str | None:
+def _get_optional_user_phone_number(recipient_id: uuid.UUID) -> Optional[str]:
     """Read optional user phone number when that column exists in DB."""
     phone_number_col = _get_phone_number_column_name()
     if not phone_number_col:
@@ -131,7 +131,7 @@ def _get_optional_user_phone_number(recipient_id: uuid.UUID) -> str | None:
         return _normalize_phone_number(result.get("phone_number"))
 
 
-def _resolve_notification_target(order: OrderContext, event: str) -> NotificationTarget | None:
+def _resolve_notification_target(order: OrderContext, event: str) -> Optional[NotificationTarget]:
     """Resolve recipient by event type."""
     with SessionLocal() as db:
         if event == "order_created":
@@ -160,7 +160,7 @@ def _resolve_notification_target(order: OrderContext, event: str) -> Notificatio
         )
 
 
-def _build_notification_content(order: OrderContext, event: str) -> tuple[str, str]:
+def _build_notification_content(order: OrderContext, event: str) -> Tuple[str, str]:
     """Build user-facing notification title/body."""
     if event == "order_created":
         return (
@@ -175,7 +175,7 @@ def _build_notification_content(order: OrderContext, event: str) -> tuple[str, s
     return ("Order update", f"Order #{order.order_id} has an update.")
 
 
-def _send_fcm_notification(*, token: str, title: str, body: str, data: dict[str, str]) -> str:
+def _send_fcm_notification(*, token: str, title: str, body: str, data: Dict[str, str]) -> str:
     """Send FCM push notification if Firebase is configured."""
     app = _initialize_firebase_app()
     if app is None:
@@ -246,7 +246,7 @@ def _send_termii_sms(*, phone_number: str, message: str) -> bool:
         return False
 
     try:
-        body: dict[str, Any] = response.json()
+        body: Dict[str, Any] = response.json()
     except ValueError:
         logger.warning("Termii returned non-JSON SMS response.")
         return False
@@ -289,7 +289,7 @@ def _attempt_sms_fallback(
     retry_jitter=True,
     retry_kwargs={"max_retries": 3},
 )
-def send_order_notification_task(self, order_id: int, event: str) -> dict[str, str | int]:  # noqa: ARG001
+def send_order_notification_task(self, order_id: int, event: str) -> Dict[str, Union[str, int]]:  # noqa: ARG001
     """Send order notifications via FCM with Termii SMS fallback."""
     with SessionLocal() as db:
         order = db.get(Order, order_id)
@@ -309,7 +309,7 @@ def send_order_notification_task(self, order_id: int, event: str) -> dict[str, s
     data = {"order_id": str(order_context.order_id), "event": event, "recipient_role": target.role}
 
     push_sent = False
-    invalid_tokens: list[str] = []
+    invalid_tokens: List[str] = []
     for token in target.fcm_tokens:
         result = _send_fcm_notification(token=token, title=title, body=body, data=data)
         if result == "sent":

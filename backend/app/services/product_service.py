@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import List, Optional
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,7 +11,7 @@ from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate
 
 
-def list_products_by_store(db: Session, store_id: int) -> list[Product]:
+def list_products_by_store(db: Session, store_id: int) -> List[Product]:
     """Return products for a store ordered by newest first."""
     stmt = (
         select(Product)
@@ -19,7 +21,7 @@ def list_products_by_store(db: Session, store_id: int) -> list[Product]:
     return list(db.scalars(stmt).all())
 
 
-def get_product_by_id(db: Session, product_id: int) -> Product | None:
+def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
     """Return a product by id."""
     return db.get(Product, product_id)
 

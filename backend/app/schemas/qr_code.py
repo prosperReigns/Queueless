@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Optional
 import uuid
 
 from pydantic import BaseModel, Field
@@ -29,8 +30,8 @@ class QRCodeValidationResponse(BaseModel):
 
     is_valid: bool
     message: str = Field(min_length=1, max_length=255)
-    order_id: int | None = Field(default=None, gt=0)
-    store_id: int | None = Field(default=None, gt=0)
-    customer_id: uuid.UUID | None = None
-    order_status: OrderStatus | None = None
-    pickup_ready: bool | None = None
+    order_id: Optional[int] = Field(default=None, gt=0)
+    store_id: Optional[int] = Field(default=None, gt=0)
+    customer_id: Optional[uuid.UUID] = None
+    order_status: Optional[OrderStatus] = None
+    pickup_ready: Optional[bool] = None

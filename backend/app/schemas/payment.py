@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,7 +15,7 @@ class PaymentInitiateRequest(BaseModel):
     """Request payload for initiating payment."""
 
     order_id: int = Field(gt=0)
-    callback_url: str | None = Field(default=None, min_length=1, max_length=2048)
+    callback_url: Optional[str] = Field(default=None, min_length=1, max_length=2048)
 
 
 class PaymentWebhookRequest(BaseModel):

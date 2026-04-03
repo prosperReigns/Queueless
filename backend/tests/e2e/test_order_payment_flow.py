@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from typing import Dict
 
 
-def _auth_headers(access_token: str) -> dict[str, str]:
+def _auth_headers(access_token: str) -> Dict[str, str]:
     return {"Authorization": f"Bearer {access_token}"}
 
 

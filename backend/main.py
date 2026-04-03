@@ -1,6 +1,6 @@
 """FastAPI application entrypoint."""
 
-from collections.abc import Awaitable, Callable
+from typing import Awaitable, Callable
 import logging
 import uuid
 

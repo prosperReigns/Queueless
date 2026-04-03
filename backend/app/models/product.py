@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import List, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -34,10 +35,10 @@ class Product(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -45,4 +46,4 @@ class Product(Base):
     )
 
     store: Mapped["Store"] = relationship("Store", back_populates="products")
-    order_items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="product")
+    order_items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="product")

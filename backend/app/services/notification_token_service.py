@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import List, Optional
 import uuid
 
 from sqlalchemy import delete, select
@@ -15,7 +16,7 @@ def upsert_notification_token(
     *,
     user_id: uuid.UUID,
     token: str,
-    device_type: str | None = None,
+    device_type: Optional[str] = None,
 ) -> NotificationToken:
     """Create or reassign a notification token to the authenticated user."""
     normalized_token = token.strip()
@@ -70,7 +71,7 @@ def upsert_notification_token(
     return new_token
 
 
-def list_user_notification_tokens(db: Session, user_id: uuid.UUID) -> list[NotificationToken]:
+def list_user_notification_tokens(db: Session, user_id: uuid.UUID) -> List[NotificationToken]:
     """Return all active notification tokens for a user."""
     stmt = (
         select(NotificationToken)
@@ -90,7 +91,7 @@ def delete_notification_token_by_value(db: Session, token: str) -> bool:
     return True
 
 
-def delete_notification_tokens_by_values(db: Session, tokens: list[str]) -> int:
+def delete_notification_tokens_by_values(db: Session, tokens: List[str]) -> int:
     """Delete token records for the given token values and return deleted count."""
     if not tokens:
         return 0

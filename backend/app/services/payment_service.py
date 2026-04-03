@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import json
 import logging
-from typing import Any
+from typing import Any, Dict, Optional, Tuple
 
 import httpx
 from sqlalchemy import select
@@ -22,7 +22,7 @@ from app.tasks.payments import schedule_payment_verification_fallback
 logger = logging.getLogger(__name__)
 
 
-def get_payment_by_reference(db: Session, reference: str) -> Payment | None:
+def get_payment_by_reference(db: Session, reference: str) -> Optional[Payment]:
     """Return payment by provider reference if present."""
     stmt = select(Payment).where(Payment.reference == reference)
     return db.scalar(stmt)
@@ -52,8 +52,8 @@ def initialize_paystack_payment(
     *,
     order_id: int,
     user: User,
-    callback_url: str | None = None,
-) -> dict[str, Any]:
+    callback_url: Optional[str] = None,
+) -> Dict[str, Any]:
     """Initialize Paystack transaction and persist pending payment."""
     settings = get_settings()
     if not settings.PAYSTACK_SECRET_KEY:
@@ -96,7 +96,7 @@ def initialize_paystack_payment(
 
     payment = _get_or_create_payment_for_order(db, order)
 
-    payload: dict[str, Any] = {
+    payload: Dict[str, Any] = {
         "email": user.email,
         "amount": int(order.total_amount * 100),
         "reference": payment.reference,
@@ -211,7 +211,7 @@ def initialize_paystack_payment(
     }
 
 
-def verify_paystack_webhook_signature(raw_body: bytes, signature: str | None) -> bool:
+def verify_paystack_webhook_signature(raw_body: bytes, signature: Optional[str]) -> bool:
     """Verify Paystack webhook signature with HMAC SHA-512."""
     settings = get_settings()
     if not settings.PAYSTACK_SECRET_KEY or not signature:
@@ -225,7 +225,7 @@ def verify_paystack_webhook_signature(raw_body: bytes, signature: str | None) ->
     return hmac.compare_digest(expected, signature)
 
 
-def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> tuple[bool, str]:
+def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, str]:
     """Process webhook event idempotently and return (processed, reason)."""
     try:
         event = json.loads(raw_body.decode("utf-8"))

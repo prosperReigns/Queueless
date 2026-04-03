@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -25,7 +26,7 @@ class NotificationToken(Base):
         index=True,
     )
     token: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True, index=True)
-    device_type: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    device_type: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import List
 import uuid
 
 from sqlalchemy import (
@@ -72,9 +73,9 @@ class Order(Base):
 
     user: Mapped["User"] = relationship("User", back_populates="orders")
     store: Mapped["Store"] = relationship("Store", back_populates="orders")
-    items: Mapped[list["OrderItem"]] = relationship(
+    items: Mapped[List["OrderItem"]] = relationship(
         "OrderItem",
         back_populates="order",
         cascade="all, delete-orphan",
     )
-    payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="order")
+    payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="order")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import List
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -25,11 +26,11 @@ class ActiveStatusUpdate(BaseModel):
     is_active: bool
 
 
-@router.get("/users", response_model=list[UserResponse])
+@router.get("/users", response_model=List[UserResponse])
 def list_users_endpoint(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
-) -> list[UserResponse]:
+) -> List[UserResponse]:
     """List all users (admin only)."""
     users = list_users(db)
     return [UserResponse.model_validate(user) for user in users]
@@ -55,11 +56,11 @@ def set_user_active_endpoint(
     return UserResponse.model_validate(updated)
 
 
-@router.get("/stores", response_model=list[StoreResponse])
+@router.get("/stores", response_model=List[StoreResponse])
 def list_stores_endpoint(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
-) -> list[StoreResponse]:
+) -> List[StoreResponse]:
     """List all stores (admin only)."""
     stores = list_stores(db)
     return [StoreResponse.model_validate(store) for store in stores]

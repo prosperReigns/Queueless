@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import List, Optional
 import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
@@ -19,14 +20,14 @@ class Store(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -35,9 +36,9 @@ class Store(Base):
     )
 
     owner: Mapped["User"] = relationship("User", back_populates="stores")
-    products: Mapped[list["Product"]] = relationship(
+    products: Mapped[List["Product"]] = relationship(
         "Product",
         back_populates="store",
         cascade="all, delete-orphan",
     )
-    orders: Mapped[list["Order"]] = relationship("Order", back_populates="store")
+    orders: Mapped[List["Order"]] = relationship("Order", back_populates="store")

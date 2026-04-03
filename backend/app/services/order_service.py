@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from enum import Enum
 import logging
+from typing import Dict, List, Optional, Set, Tuple
 import uuid
 
 from sqlalchemy import Select, select
@@ -31,7 +32,7 @@ class OrderStatusTransitionActor(str, Enum):
     SYSTEM = "system"
 
 
-_ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
+_ALLOWED_STATUS_TRANSITIONS: Dict[OrderStatus, Set[OrderStatus]] = {
     OrderStatus.PENDING: {OrderStatus.PAID, OrderStatus.CANCELLED},
     OrderStatus.PAID: {OrderStatus.PREPARING},
     OrderStatus.PREPARING: {OrderStatus.READY},
@@ -40,7 +41,7 @@ _ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.CANCELLED: set(),
 }
 
-_ACTOR_ALLOWED_TRANSITIONS: dict[OrderStatusTransitionActor, dict[OrderStatus, set[OrderStatus]]] = {
+_ACTOR_ALLOWED_TRANSITIONS: Dict[OrderStatusTransitionActor, Dict[OrderStatus, Set[OrderStatus]]] = {
     OrderStatusTransitionActor.PAYMENT_WEBHOOK: {
         OrderStatus.PENDING: {OrderStatus.PAID},
     },
@@ -58,14 +59,14 @@ _ACTOR_ALLOWED_TRANSITIONS: dict[OrderStatusTransitionActor, dict[OrderStatus, s
 }
 
 
-def emit_order_status_side_effects(order: Order, *, notification_event: str | None = None) -> None:
+def emit_order_status_side_effects(order: Order, *, notification_event: Optional[str] = None) -> None:
     """Emit notification and websocket side effects for an order status change."""
     event = notification_event or f"order_status_{order.status.value}"
     queue_order_notification(order.id, event)
     publish_customer_status_update(order.user_id, order)
 
 
-def get_order_by_id(db: Session, order_id: int) -> Order | None:
+def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
     """Return an order by id with items eagerly loaded."""
     stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
     return db.scalar(stmt)
@@ -74,16 +75,16 @@ def get_order_by_id(db: Session, order_id: int) -> Order | None:
 def list_orders(
     db: Session,
     *,
-    user_id: uuid.UUID | None = None,
-    store_ids: list[int] | None = None,
-    status: OrderStatus | None = None,
+    user_id: Optional[uuid.UUID] = None,
+    store_ids: Optional[List[int]] = None,
+    status: Optional[OrderStatus] = None,
     skip: int = 0,
     limit: int = 50,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-) -> list[Order]:
+) -> List[Order]:
     """Return orders with optional scope, filtering, pagination, and sorting."""
-    stmt: Select[tuple[Order]] = select(Order).options(selectinload(Order.items))
+    stmt: Select[Tuple[Order]] = select(Order).options(selectinload(Order.items))
 
     if user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
@@ -170,7 +171,7 @@ def create_order(db: Session, payload: OrderCreate, user_id: uuid.UUID) -> Order
     products = list(db.scalars(stmt).all())
     product_by_id = {product.id: product for product in products}
 
-    order_items: list[OrderItem] = []
+    order_items: List[OrderItem] = []
     total_amount = Decimal("0.00")
 
     for item in payload.items:

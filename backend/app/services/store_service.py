@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,13 +12,13 @@ from app.models.store import Store
 from app.schemas.store import StoreCreate, StoreUpdate
 
 
-def list_stores(db: Session) -> list[Store]:
+def list_stores(db: Session) -> List[Store]:
     """Return all stores ordered by newest first."""
     stmt = select(Store).order_by(Store.created_at.desc())
     return list(db.scalars(stmt).all())
 
 
-def get_store_by_id(db: Session, store_id: int) -> Store | None:
+def get_store_by_id(db: Session, store_id: int) -> Optional[Store]:
     """Return a store by id."""
     return db.get(Store, store_id)
 

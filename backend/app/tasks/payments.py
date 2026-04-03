@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from urllib.parse import quote, urljoin
+from typing import Optional
 
 import httpx
 from celery.exceptions import CeleryError
@@ -81,7 +82,7 @@ def verify_payment_fallback_task(self, payment_reference: str) -> str:  # noqa: 
         return f"payment_reconciled_order_{order.status.value}"
 
 
-def _get_payment_by_reference(reference: str, *, db: Session | None = None) -> Payment | None:
+def _get_payment_by_reference(reference: str, *, db: Optional[Session] = None) -> Optional[Payment]:
     """Read payment by reference, using provided session when available."""
     stmt = select(Payment).where(Payment.reference == reference)
     if db is not None:
@@ -90,7 +91,7 @@ def _get_payment_by_reference(reference: str, *, db: Session | None = None) -> P
         return owned_db.scalar(stmt)
 
 
-def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
+def _fetch_paystack_transaction_status(payment_reference: str) -> Optional[str]:
     """Fetch transaction status from Paystack verify endpoint."""
     if not _PAYSTACK_REFERENCE_PATTERN.fullmatch(payment_reference):
         logger.warning(

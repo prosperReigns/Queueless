@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
@@ -12,10 +13,10 @@ class ProductBase(BaseModel):
     """Shared product fields."""
 
     name: str = Field(min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=5000)
+    description: Optional[str] = Field(default=None, max_length=5000)
     price: Decimal = Field(ge=Decimal("0"), max_digits=10, decimal_places=2)
     is_available: bool = True
-    image_url: HttpUrl | None = None
+    image_url: Optional[HttpUrl] = None
 
 
 class ProductCreate(ProductBase):
@@ -27,11 +28,11 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     """Request payload for updating a product."""
 
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=5000)
-    price: Decimal | None = Field(default=None, ge=Decimal("0"), max_digits=10, decimal_places=2)
-    is_available: bool | None = None
-    image_url: HttpUrl | None = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=5000)
+    price: Optional[Decimal] = Field(default=None, ge=Decimal("0"), max_digits=10, decimal_places=2)
+    is_available: Optional[bool] = None
+    image_url: Optional[HttpUrl] = None
 
     model_config = ConfigDict(extra="forbid")
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -9,7 +11,7 @@ class NotificationTokenUpsertRequest(BaseModel):
     """Request payload for registering an FCM token."""
 
     fcm_token: str = Field(min_length=1, max_length=1024)
-    device_type: str | None = Field(default=None, max_length=64)
+    device_type: Optional[str] = Field(default=None, max_length=64)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -23,7 +25,7 @@ class NotificationTokenUpsertRequest(BaseModel):
 
     @field_validator("device_type")
     @classmethod
-    def validate_device_type(cls, value: str | None) -> str | None:
+    def validate_device_type(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         normalized = value.strip()
@@ -36,7 +38,7 @@ class NotificationTokenResponse(BaseModel):
     id: int
     user_id: str
     token: str
-    device_type: str | None
+    device_type: Optional[str]
 
 
 class NotificationTokenUpsertResponse(BaseModel):

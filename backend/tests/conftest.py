@@ -6,6 +6,7 @@ import os
 import sys
 import types
 from collections.abc import Generator
+from typing import Dict
 
 import pytest
 from fastapi import FastAPI
@@ -110,7 +111,7 @@ def client(db_session_fixture: Session, monkeypatch: pytest.MonkeyPatch) -> Gene
         status_code = 200
 
         @staticmethod
-        def json() -> dict[str, object]:
+        def json() -> Dict[str, object]:
             return {
                 "status": True,
                 "data": {

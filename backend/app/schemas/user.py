@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 import uuid
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -30,16 +31,16 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Request payload for updating mutable user fields."""
 
-    email: EmailStr | None = None
-    password: str | None = Field(default=None, min_length=8, max_length=128)
-    role: UserRole | None = None
-    is_active: bool | None = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
 
     model_config = ConfigDict(extra="forbid")
 
     @field_validator("password")
     @classmethod
-    def validate_password(cls, value: str | None) -> str | None:
+    def validate_password(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return value
         if value.strip() != value:

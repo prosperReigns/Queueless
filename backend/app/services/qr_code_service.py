@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import io
 import json
-from typing import Any
+from typing import Any, Dict, Optional, Tuple
 
 import qrcode
 from sqlalchemy.orm import Session
@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.models.order import Order, OrderStatus
 
 
-def _build_qr_payload(order: Order) -> dict[str, Any]:
+def _build_qr_payload(order: Order) -> Dict[str, Any]:
     """Build canonical QR payload for an order."""
     return {"type": "order_pickup", "order_id": order.id}
 
@@ -32,7 +32,7 @@ def generate_order_qr_image_base64(order: Order) -> str:
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-def _parse_qr_data(qr_data: str) -> tuple[int | None, str | None]:
+def _parse_qr_data(qr_data: str) -> Tuple[Optional[int], Optional[str]]:
     """Extract order id from QR data payload."""
     try:
         payload = json.loads(qr_data)
@@ -51,7 +51,7 @@ def _parse_qr_data(qr_data: str) -> tuple[int | None, str | None]:
     return order_id, None
 
 
-def validate_scanned_qr_data(db: Session, qr_data: str) -> tuple[bool, str, Order | None]:
+def validate_scanned_qr_data(db: Session, qr_data: str) -> Tuple[bool, str, Optional[Order]]:
     """Validate scanned order QR content and resolve referenced order."""
     order_id, parse_error = _parse_qr_data(qr_data)
     if parse_error:

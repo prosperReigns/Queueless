@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import List
 import uuid
 
 from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, String, func
@@ -45,13 +46,13 @@ class User(Base):
         server_default=func.now(),
     )
 
-    stores: Mapped[list["Store"]] = relationship(
+    stores: Mapped[List["Store"]] = relationship(
         "Store",
         back_populates="owner",
         cascade="all, delete-orphan",
     )
-    orders: Mapped[list["Order"]] = relationship("Order", back_populates="user")
-    notification_tokens: Mapped[list["NotificationToken"]] = relationship(
+    orders: Mapped[List["Order"]] = relationship("Order", back_populates="user")
+    notification_tokens: Mapped[List["NotificationToken"]] = relationship(
         "NotificationToken",
         back_populates="user",
         cascade="all, delete-orphan",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Dict, Optional
 import uuid
 
 from jose import JWTError, jwt
@@ -28,12 +28,12 @@ def create_token(
     subject: str,
     expires_delta: timedelta,
     token_type: str,
-    extra_claims: dict[str, Any] | None = None,
+    extra_claims: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Create a signed JWT token."""
     settings = get_settings()
     now = datetime.now(timezone.utc)
-    payload: dict[str, Any] = {
+    payload: Dict[str, Any] = {
         "sub": subject,
         "type": token_type,
         "iat": int(now.timestamp()),
@@ -46,7 +46,7 @@ def create_token(
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def decode_token(token: str) -> dict[str, Any]:
+def decode_token(token: str) -> Dict[str, Any]:
     """Decode and validate a signed JWT token."""
     settings = get_settings()
     try:
