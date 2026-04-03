@@ -51,6 +51,7 @@ def update_store_endpoint(
     store_id: int,
     payload: StoreUpdate,
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
     role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> StoreResponse:
     """Update an owned store."""
@@ -66,6 +67,7 @@ def update_store_endpoint(
 def delete_store_endpoint(
     store_id: int,
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
     role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> Response:
     """Delete an owned store."""

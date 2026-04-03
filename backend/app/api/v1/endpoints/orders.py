@@ -102,6 +102,7 @@ def update_order_status_endpoint(
     order_id: int,
     payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
     role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> OrderResponse:
     """Update order status for merchant-owned store orders."""

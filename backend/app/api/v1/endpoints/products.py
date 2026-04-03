@@ -34,6 +34,7 @@ def get_store_products(store_id: int, db: Session = Depends(get_db)) -> list[Pro
 def create_product_endpoint(
     payload: ProductCreate,
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
     role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> ProductResponse:
     """Create a product for a merchant-owned store."""
@@ -50,6 +51,7 @@ def update_product_endpoint(
     product_id: int,
     payload: ProductUpdate,
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
     role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> ProductResponse:
     """Update a product in a merchant-owned store."""
@@ -71,6 +73,7 @@ def update_product_endpoint(
 def delete_product_endpoint(
     product_id: int,
     db: Session = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
     role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> Response:
     """Delete a product in a merchant-owned store."""
