@@ -18,6 +18,7 @@ from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+PAYSTACK_VERIFY_TIMEOUT_SECONDS = 15
 
 
 @celery_app.task(
@@ -57,6 +58,14 @@ def verify_payment_backup_task(self, payment_reference: str) -> str:  # noqa: AR
         order = db.get(Order, fresh_payment.order_id)
         if order is None:
             db.commit()
+            logger.warning(
+                "Payment reconciled but linked order is missing.",
+                extra={
+                    "event": "payment_reconciled_order_missing",
+                    "payment_reference": payment_reference,
+                    "order_id": fresh_payment.order_id,
+                },
+            )
             return "payment_success_order_not_found"
 
         if order.status == OrderStatus.PENDING:
@@ -74,11 +83,10 @@ def verify_payment_backup_task(self, payment_reference: str) -> str:  # noqa: AR
 
 def _get_payment_by_reference(reference: str, *, db: Session | None = None) -> Payment | None:
     """Read payment by reference, using provided session when available."""
+    stmt = select(Payment).where(Payment.reference == reference)
     if db is not None:
-        stmt = select(Payment).where(Payment.reference == reference)
         return db.scalar(stmt)
     with SessionLocal() as owned_db:
-        stmt = select(Payment).where(Payment.reference == reference)
         return owned_db.scalar(stmt)
 
 
@@ -87,7 +95,7 @@ def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
     headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
     url = f"{settings.PAYSTACK_BASE_URL.rstrip('/')}/transaction/verify/{payment_reference}"
     try:
-        response = httpx.get(url, headers=headers, timeout=15)
+        response = httpx.get(url, headers=headers, timeout=PAYSTACK_VERIFY_TIMEOUT_SECONDS)
     except httpx.HTTPError as exc:
         logger.warning(
             "Payment fallback verification request failed.",
