@@ -39,6 +39,7 @@ class RequestUserMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         request.state.user = None
+
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:].strip()
@@ -46,7 +47,6 @@ class RequestUserMiddleware(BaseHTTPMiddleware):
                 payload = decode_token(token)
             except ValueError:
                 logger.warning("Failed to decode bearer token.", exc_info=True)
-                request.state.user = None
                 return await call_next(request)
 
             sub = payload.get("sub")
@@ -55,7 +55,6 @@ class RequestUserMiddleware(BaseHTTPMiddleware):
                     user_id = uuid.UUID(sub)
                 except ValueError:
                     logger.warning("Failed to parse bearer token subject as UUID.", exc_info=True)
-                    request.state.user = None
                     return await call_next(request)
                 try:
                     with SessionLocal() as db:

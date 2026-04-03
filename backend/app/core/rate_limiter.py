@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from limits.storage import storage_from_string
+from limits.errors import StorageError
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -34,8 +35,13 @@ def build_limiter() -> Limiter:
 def ensure_redis_storage_connectivity() -> None:
     """Fail fast if Redis storage cannot be initialized."""
     settings = get_settings()
-    storage = storage_from_string(settings.REDIS_URL)
-    storage.check()
+    try:
+        storage = storage_from_string(settings.REDIS_URL)
+        storage.check()
+    except StorageError as exc:
+        raise RuntimeError(
+            "Rate limiter Redis connectivity check failed. Verify REDIS_URL and Redis availability."
+        ) from exc
 
 
 def rate_limit_exceeded_handler(_request: Request, _exc: RateLimitExceeded) -> JSONResponse:
