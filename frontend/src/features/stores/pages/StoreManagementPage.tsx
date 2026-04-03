@@ -180,7 +180,7 @@ export function StoreManagementPage() {
       {!storesQuery.isLoading && !storesQuery.isError ? (
         <>
           <section className="store-card">
-            <div className="store-card__footer">
+            <div className="store-card__header">
               <h2>Your stores</h2>
               <button type="button" onClick={onResetCreate}>
                 {ownedStores.length > 0 ? 'Create new store' : 'Create your first store'}
