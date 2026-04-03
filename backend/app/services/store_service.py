@@ -48,6 +48,15 @@ def update_store(db: Session, store: Store, payload: StoreUpdate) -> Store:
     return store
 
 
+def set_store_active_status(db: Session, store: Store, is_active: bool) -> Store:
+    """Set active status on a store."""
+    store.is_active = is_active
+    db.add(store)
+    db.commit()
+    db.refresh(store)
+    return store
+
+
 def delete_store(db: Session, store: Store) -> None:
     """Delete a store."""
     db.delete(store)
