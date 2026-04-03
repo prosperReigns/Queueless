@@ -38,7 +38,7 @@ def ensure_redis_storage_connectivity() -> None:
     storage.check()
 
 
-def rate_limit_exceeded_handler(_: Request, exc: RateLimitExceeded) -> JSONResponse:
+def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """Return JSON error payload for rate-limit violations."""
     return JSONResponse(
         status_code=429,
