@@ -21,6 +21,10 @@ from app.db.session import SessionLocal
 from app.models.order import Order
 from app.models.store import Store
 from app.models.user import User
+from app.services.notification_token_service import (
+    delete_notification_tokens_by_values,
+    list_user_notification_tokens,
+)
 from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -32,7 +36,7 @@ class NotificationTarget:
 
     user_id: str
     role: str
-    fcm_token: str | None
+    fcm_tokens: list[str]
     phone_number: str | None
 
 
@@ -92,8 +96,8 @@ def _initialize_firebase_app() -> firebase_admin.App | None:
 
 
 @lru_cache
-def _get_user_contact_column_names() -> tuple[str | None, str | None]:
-    """Return available optional users contact columns as (fcm_token_col, phone_number_col)."""
+def _get_phone_number_column_name() -> str | None:
+    """Return available optional users phone number column."""
     with SessionLocal() as db:
         columns_stmt = text(
             """
@@ -101,7 +105,7 @@ def _get_user_contact_column_names() -> tuple[str | None, str | None]:
             FROM information_schema.columns
             WHERE table_schema = :table_schema
               AND table_name = :table_name
-              AND column_name IN ('fcm_token', 'phone_number')
+              AND column_name IN ('phone_number')
             """
         )
         columns = {
@@ -111,43 +115,20 @@ def _get_user_contact_column_names() -> tuple[str | None, str | None]:
                 {"table_schema": "public", "table_name": "users"},
             )
         }
-        return (
-            "fcm_token" if "fcm_token" in columns else None,
-            "phone_number" if "phone_number" in columns else None,
-        )
+        return "phone_number" if "phone_number" in columns else None
 
 
-def _get_optional_user_contact_fields(db_user_id: str) -> tuple[str | None, str | None]:
-    """Read optional user contact fields when those columns exist in DB."""
-    fcm_token_col, phone_number_col = _get_user_contact_column_names()
-    if not fcm_token_col and not phone_number_col:
-        return (None, None)
-
-    try:
-        user_uuid = uuid.UUID(db_user_id)
-    except ValueError:
-        return (None, None)
-
+def _get_optional_user_phone_number(recipient_id: uuid.UUID) -> str | None:
+    """Read optional user phone number when that column exists in DB."""
+    phone_number_col = _get_phone_number_column_name()
+    if not phone_number_col:
+        return None
     with SessionLocal() as db:
-        has_fcm = fcm_token_col == "fcm_token"
-        has_phone = phone_number_col == "phone_number"
-
-        if has_fcm and has_phone:
-            stmt = text("SELECT fcm_token, phone_number FROM users WHERE id = :user_id")
-        elif has_fcm:
-            stmt = text("SELECT fcm_token FROM users WHERE id = :user_id")
-        elif has_phone:
-            stmt = text("SELECT phone_number FROM users WHERE id = :user_id")
-        else:
-            return (None, None)
-
-        result = db.execute(stmt, {"user_id": user_uuid}).mappings().first()
+        stmt = text("SELECT phone_number FROM users WHERE id = :user_id")
+        result = db.execute(stmt, {"user_id": recipient_id}).mappings().first()
         if result is None:
-            return (None, None)
-        return (
-            result.get("fcm_token"),
-            _normalize_phone_number(result.get("phone_number")),
-        )
+            return None
+        return _normalize_phone_number(result.get("phone_number"))
 
 
 def _resolve_notification_target(order: OrderContext, event: str) -> NotificationTarget | None:
@@ -168,12 +149,13 @@ def _resolve_notification_target(order: OrderContext, event: str) -> Notificatio
         if recipient is None:
             return None
 
-        fcm_token, phone_number = _get_optional_user_contact_fields(str(recipient.id))
+        notification_tokens = list_user_notification_tokens(db, recipient.id)
+        phone_number = _get_optional_user_phone_number(recipient.id)
 
         return NotificationTarget(
             user_id=str(recipient.id),
             role=role,
-            fcm_token=fcm_token,
+            fcm_tokens=[token_record.token for token_record in notification_tokens],
             phone_number=phone_number,
         )
 
@@ -193,11 +175,11 @@ def _build_notification_content(order: OrderContext, event: str) -> tuple[str, s
     return ("Order update", f"Order #{order.order_id} has an update.")
 
 
-def _send_fcm_notification(*, token: str, title: str, body: str, data: dict[str, str]) -> bool:
+def _send_fcm_notification(*, token: str, title: str, body: str, data: dict[str, str]) -> str:
     """Send FCM push notification if Firebase is configured."""
     app = _initialize_firebase_app()
     if app is None:
-        return False
+        return "failed"
     try:
         message = messaging.Message(
             token=token,
@@ -205,19 +187,19 @@ def _send_fcm_notification(*, token: str, title: str, body: str, data: dict[str,
             data=data,
         )
         messaging.send(message, app=app)
-        return True
+        return "sent"
     except messaging.UnregisteredError as exc:
         logger.info("FCM token is unregistered; push notification dropped.", exc_info=exc)
-        return False
+        return "unregistered"
     except messaging.QuotaExceededError as exc:
         logger.warning("FCM quota exceeded while sending notification.", exc_info=exc)
-        return False
+        return "failed"
     except ValueError as exc:
         logger.warning("FCM message payload was invalid.", exc_info=exc)
-        return False
+        return "failed"
     except firebase_admin.exceptions.FirebaseError as exc:
         logger.warning("Firebase error while sending FCM notification.", exc_info=exc)
-        return False
+        return "failed"
 
 
 def _should_send_sms(event: str) -> bool:
@@ -327,8 +309,17 @@ def send_order_notification_task(self, order_id: int, event: str) -> dict[str, s
     data = {"order_id": str(order_context.order_id), "event": event, "recipient_role": target.role}
 
     push_sent = False
-    if target.fcm_token:
-        push_sent = _send_fcm_notification(token=target.fcm_token, title=title, body=body, data=data)
+    invalid_tokens: list[str] = []
+    for token in target.fcm_tokens:
+        result = _send_fcm_notification(token=token, title=title, body=body, data=data)
+        if result == "sent":
+            push_sent = True
+        elif result == "unregistered":
+            invalid_tokens.append(token)
+
+    if invalid_tokens:
+        with SessionLocal() as db:
+            delete_notification_tokens_by_values(db, invalid_tokens)
 
     sms_result = _attempt_sms_fallback(
         push_sent=push_sent,
