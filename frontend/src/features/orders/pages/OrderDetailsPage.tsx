@@ -26,7 +26,6 @@ export function OrderDetailsPage() {
   useEffect(() => {
     const token = getStoredAccessToken()
     if (!token || !isValidOrderId) {
-      setIsRealtimeConnected(false)
       return undefined
     }
 

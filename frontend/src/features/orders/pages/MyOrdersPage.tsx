@@ -11,13 +11,13 @@ import { subscribeToOrderUpdates } from '../../../services/websocket'
 export function MyOrdersPage() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
-  const pollingIntervalMs = 15000
+  const POLLING_INTERVAL_MS = 15000
 
   const ordersQuery = useQuery({
     queryKey: ['orders', user?.id],
     queryFn: () => listOrdersRequest(),
     enabled: Boolean(user?.id),
-    refetchInterval: pollingIntervalMs,
+    refetchInterval: POLLING_INTERVAL_MS,
   })
 
   useEffect(() => {
