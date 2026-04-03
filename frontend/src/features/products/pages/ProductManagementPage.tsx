@@ -130,6 +130,11 @@ export function ProductManagementPage() {
     : null
 
   const onStoreChange = (value: string) => {
+    if (value === '') {
+      setSelectedStoreId(null)
+      return
+    }
+
     const parsed = Number(value)
     if (Number.isNaN(parsed)) {
       setSelectedStoreId(null)
