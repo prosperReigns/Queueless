@@ -85,7 +85,7 @@ function App() {
     let active = true
     let unsubscribe: (() => void) | null = null
 
-    void (async () => {
+    const initializePushNotifications = async () => {
       try {
         const permission =
           getCurrentNotificationPermission() === 'granted'
@@ -117,7 +117,13 @@ function App() {
           console.warn('Push notification setup failed', error)
         }
       }
-    })()
+    }
+
+    initializePushNotifications().catch((error: unknown) => {
+      if (import.meta.env.DEV) {
+        console.warn('Push notification setup failed', error)
+      }
+    })
 
     return () => {
       active = false
