@@ -98,6 +98,7 @@ a {
   margin-top: 0.5rem;
 }
 
+.store-card__header,
 .store-card__footer,
 .product-card__header {
   display: flex;

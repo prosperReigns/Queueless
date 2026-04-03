@@ -16,6 +16,9 @@ export function Sidebar() {
         <li>
           <Link to="/dashboard/merchant/products">Products</Link>
         </li>
+        <li>
+          <Link to="/dashboard/merchant/store">Store</Link>
+        </li>
       </ul>
     </aside>
   )
