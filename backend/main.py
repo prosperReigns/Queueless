@@ -1,13 +1,15 @@
 """FastAPI application entrypoint."""
 
+from collections.abc import Awaitable, Callable
 import logging
 import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
@@ -31,7 +33,11 @@ app = FastAPI(title=settings.APP_NAME)
 class RequestUserMiddleware(BaseHTTPMiddleware):
     """Attach authenticated user to request state for middleware/decorators."""
 
-    async def dispatch(self, request, call_next):  # type: ignore[no-untyped-def]
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         request.state.user = None
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -39,11 +45,11 @@ class RequestUserMiddleware(BaseHTTPMiddleware):
             try:
                 payload = decode_token(token)
                 sub = payload.get("sub")
-                if sub is not None:
+                if isinstance(sub, str):
                     user_id = uuid.UUID(sub)
                     with SessionLocal() as db:
                         request.state.user = get_user_by_id(db, user_id)
-            except (ValueError, TypeError, SQLAlchemyError):
+            except (ValueError, SQLAlchemyError):
                 logger.warning("Failed to resolve request user from bearer token.", exc_info=True)
                 request.state.user = None
         return await call_next(request)
