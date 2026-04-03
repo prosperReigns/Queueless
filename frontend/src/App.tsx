@@ -105,7 +105,7 @@ function App() {
 
     let active = true
     let unsubscribe: (() => void) | null = null
-    let lastLifecycleSyncAt = 0
+    let lastLifecycleSyncTimestamp = 0
 
     const syncToken = async () => {
       const permission =
@@ -148,11 +148,11 @@ function App() {
       }
 
       const now = Date.now()
-      if (now - lastLifecycleSyncAt < LIFECYCLE_SYNC_THROTTLE_MS) {
+      if (now - lastLifecycleSyncTimestamp < LIFECYCLE_SYNC_THROTTLE_MS) {
         return
       }
 
-      lastLifecycleSyncAt = now
+      lastLifecycleSyncTimestamp = now
       void syncToken().catch((error: unknown) => {
         if (import.meta.env.DEV) {
           console.warn('FCM token lifecycle sync failed', error)
