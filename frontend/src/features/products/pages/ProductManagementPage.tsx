@@ -345,18 +345,37 @@ export function ProductManagementPage() {
             {productsQuery.isError ? (
               <div className="inline-alert">
                 <p>{productsErrorMessage}</p>
+                <button type="button" onClick={() => void productsQuery.refetch()} disabled={productsQuery.isFetching}>
+                  {productsQuery.isFetching ? 'Retrying...' : 'Try again'}
+                </button>
               </div>
             ) : null}
 
             {deleteErrorMessage ? (
               <div className="inline-alert">
                 <p>{deleteErrorMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteProductMutation.reset()
+                  }}
+                >
+                  Dismiss
+                </button>
               </div>
             ) : null}
 
             {availabilityErrorMessage ? (
               <div className="inline-alert">
                 <p>{availabilityErrorMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    availabilityMutation.reset()
+                  }}
+                >
+                  Dismiss
+                </button>
               </div>
             ) : null}
 

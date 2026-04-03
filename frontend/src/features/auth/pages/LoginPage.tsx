@@ -33,33 +33,48 @@ export function LoginPage() {
   }
 
   return (
-    <main>
-      <h1>Login</h1>
-      <form onSubmit={onSubmit}>
-        <label htmlFor="login-email">Email</label>
-        <input
-          id="login-email"
-          type="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
+    <main className="page-container auth-page">
+      <section className="auth-card">
+        <header className="page-header">
+          <h1>Login</h1>
+          <p>Sign in to access your queue-less experience.</p>
+        </header>
+        <form onSubmit={onSubmit} className="auth-form">
+          <label htmlFor="login-email" className="form-field">
+            <span>Email</span>
+            <input
+              id="login-email"
+              className="form-input"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
 
-        <label htmlFor="login-password">Password</label>
-        <input
-          id="login-password"
-          type="password"
-          required
-          minLength={8}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
+          <label htmlFor="login-password" className="form-field">
+            <span>Password</span>
+            <input
+              id="login-password"
+              className="form-input"
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
 
-        {error ? <p>{error}</p> : null}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Signing in...' : 'Sign in'}
-        </button>
-      </form>
+          {error ? (
+            <div className="inline-alert">
+              <p>{error}</p>
+            </div>
+          ) : null}
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+      </section>
     </main>
   )
 }

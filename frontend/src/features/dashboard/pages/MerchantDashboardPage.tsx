@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
 import { listOrdersRequest } from '../../../api/orders'
 import { ORDER_STATUS_LABELS } from '../../orders/orderStatus'
 import type { OrderStatus } from '../../../types/orders'
@@ -56,6 +57,9 @@ export function MerchantDashboardPage() {
   }
 
   const latestOrders = orders.slice(0, MAX_LATEST_ORDERS_DISPLAY)
+  const ordersErrorMessage = axios.isAxiosError<{ detail?: string }>(ordersQuery.error)
+    ? ordersQuery.error.response?.data?.detail ?? 'Unable to load orders.'
+    : 'Unable to load orders.'
 
   return (
     <section className="page-container merchant-dashboard-page">
@@ -97,11 +101,20 @@ export function MerchantDashboardPage() {
 
         {ordersQuery.isLoading ? <p>Loading orders...</p> : null}
 
-        {!ordersQuery.isLoading && latestOrders.length === 0 ? (
+        {ordersQuery.isError ? (
+          <div className="inline-alert">
+            <p>{ordersErrorMessage}</p>
+            <button type="button" onClick={() => void ordersQuery.refetch()} disabled={ordersQuery.isFetching}>
+              {ordersQuery.isFetching ? 'Retrying...' : 'Try again'}
+            </button>
+          </div>
+        ) : null}
+
+        {!ordersQuery.isLoading && !ordersQuery.isError && latestOrders.length === 0 ? (
           <p className="muted-text">No orders available yet.</p>
         ) : null}
 
-        {!ordersQuery.isLoading && latestOrders.length > 0 ? (
+        {!ordersQuery.isLoading && !ordersQuery.isError && latestOrders.length > 0 ? (
           <div className="merchant-orders-list">
             {latestOrders.map((order) => (
               <article key={order.id} className="product-card">

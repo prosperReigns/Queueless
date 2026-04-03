@@ -33,43 +33,61 @@ export function RegisterPage() {
   }
 
   return (
-    <main>
-      <h1>Register</h1>
-      <form onSubmit={onSubmit}>
-        <label htmlFor="register-email">Email</label>
-        <input
-          id="register-email"
-          type="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
+    <main className="page-container auth-page">
+      <section className="auth-card">
+        <header className="page-header">
+          <h1>Register</h1>
+          <p>Create an account to start ordering or managing your store.</p>
+        </header>
+        <form onSubmit={onSubmit} className="auth-form">
+          <label htmlFor="register-email" className="form-field">
+            <span>Email</span>
+            <input
+              id="register-email"
+              className="form-input"
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
 
-        <label htmlFor="register-password">Password</label>
-        <input
-          id="register-password"
-          type="password"
-          required
-          minLength={8}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
+          <label htmlFor="register-password" className="form-field">
+            <span>Password</span>
+            <input
+              id="register-password"
+              className="form-input"
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
 
-        <label htmlFor="register-role">Role</label>
-        <select
-          id="register-role"
-          value={role}
-          onChange={(event) => setRole(event.target.value as Extract<UserRole, 'CUSTOMER' | 'MERCHANT'>)}
-        >
-          <option value="CUSTOMER">Customer</option>
-          <option value="MERCHANT">Merchant</option>
-        </select>
+          <label htmlFor="register-role" className="form-field">
+            <span>Role</span>
+            <select
+              id="register-role"
+              className="form-input"
+              value={role}
+              onChange={(event) => setRole(event.target.value as Extract<UserRole, 'CUSTOMER' | 'MERCHANT'>)}
+            >
+              <option value="CUSTOMER">Customer</option>
+              <option value="MERCHANT">Merchant</option>
+            </select>
+          </label>
 
-        {error ? <p>{error}</p> : null}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating account...' : 'Create account'}
-        </button>
-      </form>
+          {error ? (
+            <div className="inline-alert">
+              <p>{error}</p>
+            </div>
+          ) : null}
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Creating account...' : 'Create account'}
+          </button>
+        </form>
+      </section>
     </main>
   )
 }

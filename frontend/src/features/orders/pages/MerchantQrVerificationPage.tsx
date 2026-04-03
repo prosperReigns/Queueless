@@ -237,7 +237,7 @@ export function MerchantQrVerificationPage() {
             className="form-input form-input--textarea"
             value={qrDataInput}
             onChange={(event) => setQrDataInput(event.target.value)}
-            placeholder='{"type":"order_pickup","order_id":123}'
+            placeholder="Paste QR payload from scanner or customer app"
           />
         </div>
         <div className="checkout-summary__actions">
@@ -257,7 +257,7 @@ export function MerchantQrVerificationPage() {
             inputMode="numeric"
             value={orderIdInput}
             onChange={(event) => setOrderIdInput(event.target.value)}
-            placeholder="e.g. 123"
+            placeholder="Enter order ID"
           />
         </div>
         <div className="checkout-summary__actions">
@@ -276,6 +276,18 @@ export function MerchantQrVerificationPage() {
       {primaryErrorMessage ? (
         <div className="inline-alert">
           <p>{primaryErrorMessage}</p>
+          <button
+            type="button"
+            onClick={() => {
+              verifyQrMutation.reset()
+              resolveOrderMutation.reset()
+              completeOrderMutation.reset()
+              void selectedOrderQuery.refetch()
+            }}
+            disabled={selectedOrderQuery.isFetching}
+          >
+            {selectedOrderQuery.isFetching ? 'Retrying...' : 'Try again'}
+          </button>
         </div>
       ) : null}
 
