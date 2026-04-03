@@ -77,6 +77,9 @@ export function OrderConfirmationPage() {
       {orderQuery.isError ? (
         <div className="inline-alert">
           <p>{orderErrorMessage}</p>
+          <button type="button" onClick={() => void orderQuery.refetch()} disabled={orderQuery.isFetching}>
+            {orderQuery.isFetching ? 'Retrying...' : 'Try again'}
+          </button>
         </div>
       ) : null}
 
@@ -97,6 +100,9 @@ export function OrderConfirmationPage() {
       {qrQuery.isError ? (
         <div className="inline-alert">
           <p>{qrErrorMessage}</p>
+          <button type="button" onClick={() => void qrQuery.refetch()} disabled={qrQuery.isFetching}>
+            {qrQuery.isFetching ? 'Retrying...' : 'Try again'}
+          </button>
         </div>
       ) : null}
 

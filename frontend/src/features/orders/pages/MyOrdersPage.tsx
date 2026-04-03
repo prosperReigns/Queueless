@@ -60,6 +60,9 @@ export function MyOrdersPage() {
       {ordersQuery.isError ? (
         <div className="inline-alert">
           <p>{errorMessage}</p>
+          <button type="button" onClick={() => void ordersQuery.refetch()} disabled={ordersQuery.isFetching}>
+            {ordersQuery.isFetching ? 'Retrying...' : 'Try again'}
+          </button>
         </div>
       ) : null}
 

@@ -7,21 +7,29 @@ export function Navbar() {
   const { itemCount } = useCart()
 
   return (
-    <header>
-      <nav>
-        <Link to="/">Queue-less</Link>
-        {user ? (
-          <>
-            {user.role === 'CUSTOMER' ? (
-              <Link to="/cart">Cart ({itemCount})</Link>
-            ) : null}
-            <button type="button" onClick={logout}>
-              Logout
-            </button>
-          </>
-        ) : (
-          <Link to="/auth/login">Login</Link>
-        )}
+    <header className="app-navbar">
+      <nav className="app-navbar__inner">
+        <Link to="/" className="app-navbar__brand">
+          Queue-less
+        </Link>
+        <div className="app-navbar__actions">
+          {user ? (
+            <>
+              {user.role === 'CUSTOMER' ? (
+                <Link to="/cart" className="button-link">
+                  Cart ({itemCount})
+                </Link>
+              ) : null}
+              <button type="button" onClick={logout}>
+                Logout
+              </button>
+            </>
+          ) : (
+            <Link to="/auth/login" className="button-link">
+              Login
+            </Link>
+          )}
+        </div>
       </nav>
     </header>
   )

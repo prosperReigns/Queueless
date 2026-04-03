@@ -72,12 +72,18 @@ export function OrdersManagementPage() {
       {merchantOrdersQuery.isError ? (
         <div className="inline-alert">
           <p>{errorMessage}</p>
+          <button type="button" onClick={() => void merchantOrdersQuery.refetch()} disabled={merchantOrdersQuery.isFetching}>
+            {merchantOrdersQuery.isFetching ? 'Retrying...' : 'Try again'}
+          </button>
         </div>
       ) : null}
 
       {updateStatusMutation.isError ? (
         <div className="inline-alert">
           <p>{updateErrorMessage}</p>
+          <button type="button" onClick={() => updateStatusMutation.reset()}>
+            Dismiss
+          </button>
         </div>
       ) : null}
 

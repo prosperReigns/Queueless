@@ -65,6 +65,9 @@ export function CheckoutPage() {
       {checkoutMutation.isError ? (
         <div className="inline-alert">
           <p>{errorMessage}</p>
+          <button type="button" onClick={() => checkoutMutation.reset()}>
+            Dismiss
+          </button>
         </div>
       ) : null}
 

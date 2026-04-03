@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
 import {
   listAdminStoresRequest,
   listAdminUsersRequest,
@@ -38,6 +39,14 @@ export function AdminDashboardPage() {
     },
   })
 
+  const usersErrorMessage = axios.isAxiosError<{ detail?: string }>(usersQuery.error)
+    ? usersQuery.error.response?.data?.detail ?? 'Failed to load users.'
+    : 'Failed to load users.'
+
+  const storesErrorMessage = axios.isAxiosError<{ detail?: string }>(storesQuery.error)
+    ? storesQuery.error.response?.data?.detail ?? 'Failed to load stores.'
+    : 'Failed to load stores.'
+
   return (
     <section className="page-container admin-dashboard-page">
       <header className="page-header">
@@ -48,7 +57,14 @@ export function AdminDashboardPage() {
       <section className="store-card">
         <h2>Users</h2>
         {usersQuery.isLoading ? <p>Loading users...</p> : null}
-        {usersQuery.isError ? <p className="muted-text">Failed to load users.</p> : null}
+        {usersQuery.isError ? (
+          <div className="inline-alert">
+            <p>{usersErrorMessage}</p>
+            <button type="button" onClick={() => void usersQuery.refetch()} disabled={usersQuery.isFetching}>
+              {usersQuery.isFetching ? 'Retrying...' : 'Try again'}
+            </button>
+          </div>
+        ) : null}
         {!usersQuery.isLoading && !usersQuery.isError && (usersQuery.data?.length ?? 0) === 0 ? (
           <p className="muted-text">No users found.</p>
         ) : null}
@@ -86,7 +102,14 @@ export function AdminDashboardPage() {
       <section className="store-card">
         <h2>Stores</h2>
         {storesQuery.isLoading ? <p>Loading stores...</p> : null}
-        {storesQuery.isError ? <p className="muted-text">Failed to load stores.</p> : null}
+        {storesQuery.isError ? (
+          <div className="inline-alert">
+            <p>{storesErrorMessage}</p>
+            <button type="button" onClick={() => void storesQuery.refetch()} disabled={storesQuery.isFetching}>
+              {storesQuery.isFetching ? 'Retrying...' : 'Try again'}
+            </button>
+          </div>
+        ) : null}
         {!storesQuery.isLoading && !storesQuery.isError && (storesQuery.data?.length ?? 0) === 0 ? (
           <p className="muted-text">No stores found.</p>
         ) : null}
