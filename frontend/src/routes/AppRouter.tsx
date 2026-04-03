@@ -10,6 +10,7 @@ import { OrderDetailsPage } from '../features/orders/pages/OrderDetailsPage'
 import { MyOrdersPage } from '../features/orders/pages/MyOrdersPage'
 import { OrderConfirmationPage } from '../features/orders/pages/OrderConfirmationPage'
 import { OrdersManagementPage } from '../features/orders/pages/OrdersManagementPage'
+import { MerchantQrVerificationPage } from '../features/orders/pages/MerchantQrVerificationPage'
 import { ProductManagementPage } from '../features/products/pages/ProductManagementPage'
 import { StoreDetailsPage } from '../features/stores/pages/StoreDetailsPage'
 import { StoresPage } from '../features/stores/pages/StoresPage'
@@ -49,6 +50,7 @@ export function AppRouter() {
         <Route element={<DashboardLayout />}>
           <Route path="dashboard/merchant" element={<MerchantDashboardPage />} />
           <Route path="dashboard/merchant/orders" element={<OrdersManagementPage />} />
+          <Route path="dashboard/merchant/verify" element={<MerchantQrVerificationPage />} />
           <Route path="dashboard/merchant/products" element={<ProductManagementPage />} />
         </Route>
       </Route>

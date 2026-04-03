@@ -5,6 +5,8 @@ import type {
   OrderStatusUpdateRequest,
   PaymentInitiateResponse,
   QRCodeResponse,
+  QRCodeValidationRequest,
+  QRCodeValidationResponse,
 } from '../types/orders'
 
 const sortOrdersByCreatedAtDesc = (orders: OrderResponse[]) =>
@@ -43,5 +45,10 @@ export async function initiatePaymentRequest(orderId: number, callbackUrl?: stri
 
 export async function getOrderQrCodeRequest(orderId: number): Promise<QRCodeResponse> {
   const { data } = await apiClient.get<QRCodeResponse>(`/qr-codes/orders/${orderId}`)
+  return data
+}
+
+export async function validateQrCodeRequest(payload: QRCodeValidationRequest): Promise<QRCodeValidationResponse> {
+  const { data } = await apiClient.post<QRCodeValidationResponse>('/qr-codes/validate', payload)
   return data
 }

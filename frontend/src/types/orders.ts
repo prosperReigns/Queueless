@@ -55,3 +55,17 @@ export interface QRCodeResponse {
   qr_data: string
   qr_image_base64: string
 }
+
+export interface QRCodeValidationRequest {
+  qr_data: string
+}
+
+export interface QRCodeValidationResponse {
+  is_valid: boolean
+  message: string
+  order_id: number | null
+  store_id: number | null
+  customer_id: string | null
+  order_status: OrderStatus | null
+  pickup_ready: boolean | null
+}

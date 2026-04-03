@@ -11,6 +11,9 @@ export function Sidebar() {
           <Link to="/dashboard/merchant/orders">Orders</Link>
         </li>
         <li>
+          <Link to="/dashboard/merchant/verify">Verify QR</Link>
+        </li>
+        <li>
           <Link to="/dashboard/merchant/products">Products</Link>
         </li>
       </ul>
