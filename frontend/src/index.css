@@ -193,6 +193,41 @@ button:disabled {
   margin-top: 0.75rem;
 }
 
+.product-management-form-card {
+  margin-top: 0.75rem;
+}
+
+.product-management-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.form-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.form-input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: #ffffff;
+  color: #111827;
+}
+
+.form-input--textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.form-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .qr-card {
   margin-top: 1rem;
 }
