@@ -17,7 +17,7 @@ export function CustomerDashboardPage() {
   })
 
   const orders = ordersQuery.data ?? []
-  const activeOrdersCount = orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)).length
+  const activeOrdersCount = orders.filter((order) => ACTIVE_ORDER_STATUSES.has(order.status)).length
   const completedOrdersCount = orders.filter((order) => order.status === 'completed').length
   const recentOrders = orders.slice(0, RECENT_ORDERS_LIMIT)
 
