@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
+from app.core.config import get_settings
+from app.core.rate_limiter import limiter
 from app.models.user import User
 from app.schemas.token import AccessTokenResponse, LoginRequest, RefreshTokenRequest, TokenPair
 from app.schemas.user import UserCreate, UserResponse
@@ -17,10 +19,12 @@ from app.services.auth_service import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+settings = get_settings()
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: UserCreate, db: Session = Depends(get_db)) -> UserResponse:
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def register(request: Request, payload: UserCreate, db: Session = Depends(get_db)) -> UserResponse:
     """Register a new user account."""
     try:
         user = register_user(db, payload)
@@ -30,7 +34,8 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> UserResponse
 
 
 @router.post("/login", response_model=TokenPair)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
     """Authenticate user and return JWT tokens."""
     user = authenticate_user(db, payload.email.lower(), payload.password)
     if user is None:
@@ -53,7 +58,9 @@ def me(current_user: User = Depends(get_current_active_user)) -> UserResponse:
 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
+@limiter.limit(settings.RATE_LIMIT_AUTH)
 def refresh_access_token(
+    request: Request,
     payload: RefreshTokenRequest,
     db: Session = Depends(get_db),
 ) -> AccessTokenResponse:

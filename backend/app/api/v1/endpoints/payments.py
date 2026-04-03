@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_roles
+from app.core.config import get_settings
+from app.core.rate_limiter import limiter
 from app.models.user import User, UserRole
 from app.schemas.payment import PaymentInitiateRequest, PaymentInitiateResponse
 from app.services.payment_service import (
@@ -15,10 +17,13 @@ from app.services.payment_service import (
 )
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+settings = get_settings()
 
 
 @router.post("/initiate", response_model=PaymentInitiateResponse)
+@limiter.limit(settings.RATE_LIMIT_PAYMENTS)
 def initiate_payment(
+    request: Request,
     payload: PaymentInitiateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.CUSTOMER)),
@@ -43,6 +48,7 @@ def initiate_payment(
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
+@limiter.limit(settings.RATE_LIMIT_PAYMENTS)
 async def paystack_webhook(
     request: Request,
     db: Session = Depends(get_db),
