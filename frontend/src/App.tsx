@@ -86,37 +86,29 @@ function App() {
     let unsubscribe: (() => void) | null = null
 
     const initializePushNotifications = async () => {
-      try {
-        const permission =
-          getCurrentNotificationPermission() === 'granted'
-            ? 'granted'
-            : await requestPushPermission()
+      const permission =
+        getCurrentNotificationPermission() === 'granted' ? 'granted' : await requestPushPermission()
 
-        if (!active || permission !== 'granted') {
-          return
-        }
-
-        const fcmToken = await getFcmRegistrationToken()
-        if (!active || !fcmToken) {
-          return
-        }
-
-        if (syncedTokenRef.current !== fcmToken) {
-          await syncFcmTokenWithBackend(fcmToken)
-          syncedTokenRef.current = fcmToken
-        }
-
-        unsubscribe = await listenForForegroundMessages((payload) => {
-          const inAppNotification = toInAppNotification(payload)
-          setNotifications((current) =>
-            [inAppNotification, ...current].slice(0, MAX_IN_APP_NOTIFICATIONS),
-          )
-        })
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn('Push notification setup failed', error)
-        }
+      if (!active || permission !== 'granted') {
+        return
       }
+
+      const fcmToken = await getFcmRegistrationToken()
+      if (!active || !fcmToken) {
+        return
+      }
+
+      if (syncedTokenRef.current !== fcmToken) {
+        await syncFcmTokenWithBackend(fcmToken)
+        syncedTokenRef.current = fcmToken
+      }
+
+      unsubscribe = await listenForForegroundMessages((payload) => {
+        const inAppNotification = toInAppNotification(payload)
+        setNotifications((current) =>
+          [inAppNotification, ...current].slice(0, MAX_IN_APP_NOTIFICATIONS),
+        )
+      })
     }
 
     initializePushNotifications().catch((error: unknown) => {
