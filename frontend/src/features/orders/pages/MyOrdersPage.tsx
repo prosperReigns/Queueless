@@ -11,12 +11,13 @@ import { subscribeToOrderUpdates } from '../../../services/websocket'
 export function MyOrdersPage() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const pollingIntervalMs = 15000
 
   const ordersQuery = useQuery({
     queryKey: ['orders', user?.id],
     queryFn: () => listOrdersRequest(),
     enabled: Boolean(user?.id),
-    refetchInterval: 30000,
+    refetchInterval: pollingIntervalMs,
   })
 
   useEffect(() => {
@@ -54,11 +55,16 @@ export function MyOrdersPage() {
       </div>
 
       {ordersQuery.isLoading ? <p>Loading orders...</p> : null}
+      {!ordersQuery.isLoading && ordersQuery.isFetching ? <p className="muted-text">Updating your orders...</p> : null}
 
       {ordersQuery.isError ? (
         <div className="inline-alert">
           <p>{errorMessage}</p>
         </div>
+      ) : null}
+
+      {!ordersQuery.isLoading && !ordersQuery.isError ? (
+        <p className="muted-text">Status updates are received in real-time and poll every 15s as fallback.</p>
       ) : null}
 
       {!ordersQuery.isLoading && !ordersQuery.isError && ordersQuery.data?.length === 0 ? (
@@ -74,7 +80,7 @@ export function MyOrdersPage() {
               <p className="muted-text">Items: {order.items.length}</p>
               <p className="muted-text">Total: ₦{Number(order.total_amount).toLocaleString()}</p>
               <div className="checkout-summary__actions">
-                <Link to={`/orders/${order.id}/confirmation`} className="button-link">
+                <Link to={`/orders/${order.id}`} className="button-link">
                   View details
                 </Link>
               </div>
