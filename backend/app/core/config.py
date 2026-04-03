@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str | None = None
     CELERY_RESULT_BACKEND: str | None = None
     CELERY_TASK_ALWAYS_EAGER: bool = False
+    FIREBASE_CREDENTIALS_JSON: str | None = None
+    FIREBASE_CREDENTIALS_PATH: str | None = None
+    TERMII_API_KEY: str | None = None
+    TERMII_BASE_URL: str = "https://api.ng.termii.com"
+    TERMII_SENDER_ID: str = "Queueless"
+    TERMII_CHANNEL: str = "generic"
+    TERMII_SEND_ORDER_READY_SMS: bool = False
+    TERMII_TIMEOUT_SECONDS: int = Field(default=10, ge=1, le=60)
     ORDER_EXPIRY_MINUTES: int = Field(
         default=10,
         ge=1,
