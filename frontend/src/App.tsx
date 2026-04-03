@@ -12,6 +12,7 @@ import {
 } from './services/firebase'
 
 const MAX_IN_APP_NOTIFICATIONS = 5
+const LIFECYCLE_SYNC_THROTTLE_MS = 15000
 
 interface InAppNotification {
   id: string
@@ -104,6 +105,7 @@ function App() {
 
     let active = true
     let unsubscribe: (() => void) | null = null
+    let lastLifecycleSyncAt = 0
 
     const syncToken = async () => {
       const permission =
@@ -115,7 +117,7 @@ function App() {
 
       const fcmToken = await getFcmRegistrationToken()
       if (!active || !fcmToken) {
-        return fcmToken
+        return null
       }
 
       if (syncedTokenRef.current !== fcmToken) {
@@ -145,6 +147,12 @@ function App() {
         return
       }
 
+      const now = Date.now()
+      if (now - lastLifecycleSyncAt < LIFECYCLE_SYNC_THROTTLE_MS) {
+        return
+      }
+
+      lastLifecycleSyncAt = now
       void syncToken().catch((error: unknown) => {
         if (import.meta.env.DEV) {
           console.warn('FCM token lifecycle sync failed', error)

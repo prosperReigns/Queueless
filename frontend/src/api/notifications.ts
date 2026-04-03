@@ -39,5 +39,5 @@ export async function syncFcmTokenWithBackend(fcmToken: string): Promise<boolean
     throw lastError
   }
 
-  return true
+  throw new Error('Failed to sync FCM token')
 }
