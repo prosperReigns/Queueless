@@ -1,0 +1,306 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
+import { getOrderRequest, updateOrderStatusRequest, validateQrCodeRequest } from '../../../api/orders'
+import type { QRCodeValidationResponse } from '../../../types/orders'
+
+const parseOrderId = (value: string): number | null => {
+  const parsed = Number(value.trim())
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+type DetectedBarcode = { rawValue?: string }
+type QRBarcodeDetector = { detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]> }
+type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => QRBarcodeDetector
+const SCAN_INTERVAL_MS = 1000
+
+export function MerchantQrVerificationPage() {
+  const queryClient = useQueryClient()
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const intervalRef = useRef<number | null>(null)
+  const scanProcessingRef = useRef(false)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const [qrDataInput, setQrDataInput] = useState('')
+  const [orderIdInput, setOrderIdInput] = useState('')
+  const [activeOrderId, setActiveOrderId] = useState<number | null>(null)
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null)
+  const [scanMessage, setScanMessage] = useState<string | null>('Open scanner to read a customer QR code.')
+  const [scanErrorMessage, setScanErrorMessage] = useState<string | null>(null)
+
+  const stopScanner = () => {
+    if (intervalRef.current !== null) {
+      window.clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    scanProcessingRef.current = false
+    setIsScannerOpen(false)
+    setScanMessage('Open scanner to read a customer QR code.')
+  }
+
+  const applyVerificationResult = (response: QRCodeValidationResponse) => {
+    setVerificationMessage(response.message)
+    if (response.is_valid && response.order_id) {
+      setActiveOrderId(response.order_id)
+    } else {
+      setActiveOrderId(null)
+    }
+  }
+
+  const verifyQrMutation = useMutation({
+    mutationFn: (qrData: string) => validateQrCodeRequest({ qr_data: qrData }),
+    onSuccess: applyVerificationResult,
+  })
+
+  const resolveOrderMutation = useMutation({
+    mutationFn: (orderId: number) =>
+      validateQrCodeRequest({ qr_data: JSON.stringify({ type: 'order_pickup', order_id: orderId }) }),
+    onSuccess: applyVerificationResult,
+  })
+
+  const selectedOrderQuery = useQuery({
+    queryKey: ['merchant-verified-order', activeOrderId],
+    queryFn: () => getOrderRequest(activeOrderId as number),
+    enabled: activeOrderId !== null,
+  })
+
+  const completeOrderMutation = useMutation({
+    mutationFn: (orderId: number) => updateOrderStatusRequest(orderId, { status: 'completed' }),
+    onSuccess: (order) => {
+      setVerificationMessage(`Order #${order.id} marked as completed.`)
+      setActiveOrderId(order.id)
+      queryClient.setQueryData(['merchant-verified-order', order.id], order)
+      void queryClient.invalidateQueries({ queryKey: ['orders'] })
+      void queryClient.invalidateQueries({ queryKey: ['merchant-verified-order', order.id] })
+    },
+  })
+
+  const primaryErrorMessage = useMemo(() => {
+    const candidate = [verifyQrMutation.error, resolveOrderMutation.error, completeOrderMutation.error, selectedOrderQuery.error].find(
+      (error) => Boolean(error),
+    )
+    return axios.isAxiosError<{ detail?: string }>(candidate)
+      ? candidate.response?.data?.detail ?? 'Action failed. Try again.'
+      : candidate
+        ? 'Action failed. Try again.'
+        : null
+  }, [
+    completeOrderMutation.error,
+    resolveOrderMutation.error,
+    selectedOrderQuery.error,
+    verifyQrMutation.error,
+  ])
+
+  const selectedOrder = selectedOrderQuery.data
+
+  const canComplete = selectedOrder?.status === 'ready' && !completeOrderMutation.isPending
+
+  const handleScan = async () => {
+    const barcodeDetectorCtor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector
+
+    if (!barcodeDetectorCtor) {
+      setScanErrorMessage('QR scan is not supported in this browser. Use QR payload or order ID.')
+      return
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScanErrorMessage('Camera access is not available. Use QR payload or order ID.')
+      return
+    }
+
+    try {
+      const detector = new barcodeDetectorCtor({ formats: ['qr_code'] })
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      streamRef.current = stream
+      setIsScannerOpen(true)
+      setScanErrorMessage(null)
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+      setScanMessage('Point the camera at the QR code.')
+
+      intervalRef.current = window.setInterval(async () => {
+        if (scanProcessingRef.current) {
+          return
+        }
+        const video = videoRef.current
+        if (!video || video.readyState < 2) {
+          return
+        }
+
+        scanProcessingRef.current = true
+        try {
+          const barcodes = await detector.detect(video)
+          const value = barcodes[0]?.rawValue?.trim()
+          if (!value) {
+            scanProcessingRef.current = false
+            return
+          }
+
+          setQrDataInput(value)
+          stopScanner()
+          try {
+            const response = await validateQrCodeRequest({ qr_data: value })
+            applyVerificationResult(response)
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.error('QR verification failed after scan', error)
+            }
+            if (axios.isAxiosError<{ detail?: string }>(error)) {
+              setScanErrorMessage(error.response?.data?.detail ?? 'QR captured, but verification failed. Use Verify QR to retry.')
+            } else {
+              setScanErrorMessage('QR captured, but verification failed. Use Verify QR to retry.')
+            }
+            scanProcessingRef.current = false
+          }
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('QR detection failed', error)
+          }
+          setScanErrorMessage('Unable to read QR yet. Keep camera steady.')
+          scanProcessingRef.current = false
+        }
+      }, SCAN_INTERVAL_MS)
+    } catch (error) {
+      stopScanner()
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError') {
+          setScanErrorMessage('Camera permission denied. Allow camera access, then try again.')
+          return
+        }
+        if (error.name === 'NotFoundError') {
+          setScanErrorMessage('No camera detected on this device. Use QR payload or order ID.')
+          return
+        }
+      }
+      setScanErrorMessage('Unable to start camera. Use QR payload or order ID.')
+    }
+  }
+
+  const handleQrVerify = () => {
+    const payload = qrDataInput.trim()
+    if (!payload) {
+      setVerificationMessage('Paste QR data first.')
+      return
+    }
+    verifyQrMutation.mutate(payload)
+  }
+
+  const handleOrderIdVerify = () => {
+    const parsedOrderId = parseOrderId(orderIdInput)
+    if (!parsedOrderId) {
+      setVerificationMessage('Enter a valid order ID.')
+      return
+    }
+    resolveOrderMutation.mutate(parsedOrderId)
+  }
+
+  useEffect(() => () => stopScanner(), [])
+
+  return (
+    <section className="page-container merchant-qr-page">
+      <header className="page-header">
+        <h1>QR Verification</h1>
+        <p>Scan customer QR or enter order ID to verify and complete pickup fast.</p>
+      </header>
+
+      <article className="store-card merchant-qr-panel">
+        <h2>1) Scan QR</h2>
+        <p className="muted-text">Use device camera when supported.</p>
+        <div className="checkout-summary__actions">
+          <button type="button" onClick={() => void handleScan()} disabled={isScannerOpen}>
+            {isScannerOpen ? 'Scanning...' : 'Scan QR'}
+          </button>
+          {isScannerOpen ? (
+            <button type="button" onClick={stopScanner}>
+              Stop scanner
+            </button>
+          ) : null}
+        </div>
+        {scanMessage ? <p className="muted-text">{scanMessage}</p> : null}
+        {scanErrorMessage ? <p className="muted-text">{scanErrorMessage}</p> : null}
+        {isScannerOpen ? <video ref={videoRef} className="merchant-qr-video" autoPlay muted playsInline /> : null}
+      </article>
+
+      <article className="store-card merchant-qr-panel">
+        <h2>2) Verify with QR data</h2>
+        <div className="form-field">
+          <label htmlFor="qr-data-input">QR payload</label>
+          <textarea
+            id="qr-data-input"
+            className="form-input form-input--textarea"
+            value={qrDataInput}
+            onChange={(event) => setQrDataInput(event.target.value)}
+            placeholder='{"type":"order_pickup","order_id":123}'
+          />
+        </div>
+        <div className="checkout-summary__actions">
+          <button type="button" onClick={handleQrVerify} disabled={verifyQrMutation.isPending}>
+            {verifyQrMutation.isPending ? 'Verifying...' : 'Verify QR'}
+          </button>
+        </div>
+      </article>
+
+      <article className="store-card merchant-qr-panel">
+        <h2>3) Or verify by order ID</h2>
+        <div className="form-field">
+          <label htmlFor="order-id-input">Order ID</label>
+          <input
+            id="order-id-input"
+            className="form-input"
+            inputMode="numeric"
+            value={orderIdInput}
+            onChange={(event) => setOrderIdInput(event.target.value)}
+            placeholder="e.g. 123"
+          />
+        </div>
+        <div className="checkout-summary__actions">
+          <button type="button" onClick={handleOrderIdVerify} disabled={resolveOrderMutation.isPending}>
+            {resolveOrderMutation.isPending ? 'Loading...' : 'Verify order ID'}
+          </button>
+        </div>
+      </article>
+
+      {verificationMessage ? (
+        <article className="store-card">
+          <p>{verificationMessage}</p>
+        </article>
+      ) : null}
+
+      {primaryErrorMessage ? (
+        <div className="inline-alert">
+          <p>{primaryErrorMessage}</p>
+        </div>
+      ) : null}
+
+      {selectedOrderQuery.isLoading ? <p>Loading verified order...</p> : null}
+
+      {selectedOrder ? (
+        <article className="store-card merchant-qr-result">
+          <h2>Verified Order #{selectedOrder.id}</h2>
+          <p className="muted-text">Status: {selectedOrder.status}</p>
+          <p className="muted-text">Items: {selectedOrder.items.length}</p>
+          <p className="muted-text">Total: ₦{Number(selectedOrder.total_amount).toLocaleString()}</p>
+          <div className="checkout-summary__actions">
+            <button
+              type="button"
+              onClick={() => completeOrderMutation.mutate(selectedOrder.id)}
+              disabled={!canComplete}
+            >
+              {completeOrderMutation.isPending ? 'Completing...' : 'Mark as Completed'}
+            </button>
+          </div>
+          {selectedOrder.status !== 'ready' ? (
+            <p className="muted-text">Only READY orders can be marked as completed.</p>
+          ) : null}
+        </article>
+      ) : null}
+    </section>
+  )
+}

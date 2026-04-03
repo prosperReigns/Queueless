@@ -322,6 +322,16 @@ button:disabled {
   gap: 0.75rem;
 }
 
+.merchant-qr-page {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.merchant-qr-panel h2,
+.merchant-qr-result h2 {
+  margin-top: 0;
+}
+
 .admin-list {
   display: grid;
   gap: 0.75rem;
