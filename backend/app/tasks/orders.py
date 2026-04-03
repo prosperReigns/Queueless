@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.order import Order, OrderStatus
-from app.services.order_service import OrderStatusTransitionSource, update_order_status
+from app.services.order_service import OrderStatusTransitionActor, update_order_status
 from app.tasks.celery_app import celery_app
 
 settings = get_settings()
@@ -53,8 +53,11 @@ def expire_unpaid_order_task(self, order_id: int) -> str:  # noqa: ARG001
             db,
             order,
             OrderStatus.CANCELLED,
-            source=OrderStatusTransitionSource.SYSTEM,
+            actor=OrderStatusTransitionActor.SYSTEM,
+            commit=False,
         )
+        db.commit()
+        db.refresh(order)
         return "expired"
 
 
@@ -88,7 +91,8 @@ def expire_pending_orders_task(self) -> int:  # noqa: ARG001
                         db,
                         order,
                         OrderStatus.CANCELLED,
-                        source=OrderStatusTransitionSource.SYSTEM,
+                        actor=OrderStatusTransitionActor.SYSTEM,
+                        commit=False,
                     )
                     expired_count += 1
                 last_seen_id = order.id

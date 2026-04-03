@@ -27,6 +27,7 @@ class OrderStatusTransitionActor(str, Enum):
 
     MERCHANT = "merchant"
     PAYMENT_WEBHOOK = "payment_webhook"
+    SYSTEM = "system"
 
 
 _ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
@@ -102,10 +103,10 @@ def validate_order_status_transition(
     order: Order,
     status: OrderStatus,
     *,
-    source: OrderStatusTransitionSource = OrderStatusTransitionSource.MERCHANT,
+    actor: OrderStatusTransitionActor,
 ) -> None:
-    """Validate an order status transition for a specific transition source."""
-    allowed_next_statuses = _ALLOWED_SOURCE_TRANSITIONS.get(source, {}).get(order.status, set())
+    """Validate an order status transition for a specific actor."""
+    allowed_next_statuses = _ALLOWED_STATUS_TRANSITIONS.get(order.status, set())
     if status not in allowed_next_statuses:
         logger.warning(
             "Order status update failed: invalid transition.",
@@ -114,12 +115,30 @@ def validate_order_status_transition(
                 "order_id": order.id,
                 "from_status": order.status.value,
                 "to_status": status.value,
-                "source": source.value,
+                "actor": actor.value,
                 "reason": "invalid_transition",
             },
         )
         raise ValueError(
-            f"Invalid order status transition for {source.value}: "
+            f"Invalid order status transition for {actor.value}: "
+            f"{order.status.value} -> {status.value}."
+        )
+
+    actor_allowed_next_statuses = _ACTOR_ALLOWED_TRANSITIONS.get(actor, {}).get(order.status, set())
+    if status not in actor_allowed_next_statuses:
+        logger.warning(
+            "Order status update failed: actor not allowed for transition.",
+            extra={
+                "event": "order_status_update_failed",
+                "order_id": order.id,
+                "from_status": order.status.value,
+                "to_status": status.value,
+                "actor": actor.value,
+                "reason": "actor_forbidden_transition",
+            },
+        )
+        raise ValueError(
+            f"{actor.value} cannot perform order status transition: "
             f"{order.status.value} -> {status.value}."
         )
 
@@ -219,6 +238,8 @@ def update_order_status(
     status: OrderStatus,
     *,
     actor: OrderStatusTransitionActor,
+    commit: bool = True,
+    emit_side_effects: bool = True,
 ) -> Order:
     """Update an order status if the transition is valid."""
     if order.status == status:
@@ -234,40 +255,7 @@ def update_order_status(
         return order
 
     previous_status = order.status
-    allowed_next_statuses = actor_transitions[order.status]
-    if status not in allowed_next_statuses:
-        logger.warning(
-            "Order status update failed: invalid transition.",
-            extra={
-                "event": "order_status_update_failed",
-                "order_id": order.id,
-                "actor": actor,
-                "from_status": previous_status.value,
-                "to_status": status.value,
-                "reason": "invalid_transition",
-            },
-        )
-        raise ValueError(
-            f"Invalid {actor} order status transition: {order.status.value} -> {status.value}."
-        )
-
-    actor_allowed_next_statuses = _ACTOR_ALLOWED_TRANSITIONS.get(actor, {}).get(order.status, set())
-    if status not in actor_allowed_next_statuses:
-        logger.warning(
-            "Order status update failed: actor not allowed for transition.",
-            extra={
-                "event": "order_status_update_failed",
-                "order_id": order.id,
-                "from_status": previous_status.value,
-                "to_status": status.value,
-                "actor": actor.value,
-                "reason": "actor_forbidden_transition",
-            },
-        )
-        raise ValueError(
-            f"{actor.value} cannot perform order status transition: "
-            f"{order.status.value} -> {status.value}."
-        )
+    validate_order_status_transition(order, status, actor=actor)
 
     order.status = status
     db.add(order)
@@ -281,7 +269,7 @@ def update_order_status(
         extra={
             "event": "order_status_updated",
             "order_id": order.id,
-            "actor": actor,
+            "actor": actor.value,
             "user_id": str(order.user_id),
             "store_id": order.store_id,
             "from_status": previous_status.value,
