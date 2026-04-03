@@ -118,11 +118,9 @@ export function ProductManagementPage() {
     ? productsQuery.error.response?.data?.detail ?? 'Unable to load products.'
     : 'Unable to load products.'
 
-  const submitErrorMessage = axios.isAxiosError<{ detail?: string }>(
-    createProductMutation.error ?? updateProductMutation.error,
-  )
-    ? (createProductMutation.error ?? updateProductMutation.error)?.response?.data?.detail ??
-      'Unable to save product.'
+  const submitError = createProductMutation.error ?? updateProductMutation.error
+  const submitErrorMessage = axios.isAxiosError<{ detail?: string }>(submitError)
+    ? submitError.response?.data?.detail ?? 'Unable to save product.'
     : null
 
   const deleteErrorMessage = axios.isAxiosError<{ detail?: string }>(deleteProductMutation.error)
