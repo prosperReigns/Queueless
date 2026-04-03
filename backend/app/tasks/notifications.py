@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +44,14 @@ class OrderContext:
     user_id: str
 
 
+@dataclass(slots=True)
+class SmsFallbackResult:
+    """SMS fallback outcome."""
+
+    was_attempted: bool
+    was_delivered: bool
+
+
 def _normalize_phone_number(phone_number: str | None) -> str | None:
     """Normalize phone number for SMS provider, keeping leading + when provided."""
     if phone_number is None:
@@ -53,8 +63,10 @@ def _normalize_phone_number(phone_number: str | None) -> str | None:
 def _initialize_firebase_app() -> firebase_admin.App | None:
     """Initialize Firebase app once if credentials are configured."""
     settings = get_settings()
-    if firebase_admin._apps:
+    try:
         return firebase_admin.get_app()
+    except ValueError:
+        pass
 
     cred: credentials.Base | None = None
     if settings.FIREBASE_CREDENTIALS_JSON:
@@ -78,30 +90,57 @@ def _initialize_firebase_app() -> firebase_admin.App | None:
     return firebase_admin.initialize_app(cred)
 
 
-def _get_optional_user_contact_fields(db_user_id: str) -> tuple[str | None, str | None]:
-    """Read optional user contact fields when those columns exist in DB."""
+@lru_cache
+def _get_user_contact_column_names() -> tuple[str | None, str | None]:
+    """Return available optional users contact columns as (fcm_token_col, phone_number_col)."""
     with SessionLocal() as db:
         columns_stmt = text(
             """
             SELECT column_name
             FROM information_schema.columns
-            WHERE table_name = 'users' AND column_name IN ('fcm_token', 'phone_number')
+            WHERE table_schema = :table_schema
+              AND table_name = :table_name
+              AND column_name IN ('fcm_token', 'phone_number')
             """
         )
-        columns = {row[0] for row in db.execute(columns_stmt)}
-        if not columns:
-            return (None, None)
+        columns = {
+            row[0]
+            for row in db.execute(
+                columns_stmt,
+                {"table_schema": "public", "table_name": "users"},
+            )
+        }
+        return (
+            "fcm_token" if "fcm_token" in columns else None,
+            "phone_number" if "phone_number" in columns else None,
+        )
 
-        if {"fcm_token", "phone_number"}.issubset(columns):
-            stmt = text("SELECT fcm_token, phone_number FROM users WHERE id::text = :user_id")
-        elif "fcm_token" in columns:
-            stmt = text("SELECT fcm_token FROM users WHERE id::text = :user_id")
-        elif "phone_number" in columns:
-            stmt = text("SELECT phone_number FROM users WHERE id::text = :user_id")
+
+def _get_optional_user_contact_fields(db_user_id: str) -> tuple[str | None, str | None]:
+    """Read optional user contact fields when those columns exist in DB."""
+    fcm_token_col, phone_number_col = _get_user_contact_column_names()
+    if not fcm_token_col and not phone_number_col:
+        return (None, None)
+
+    try:
+        user_uuid = uuid.UUID(db_user_id)
+    except ValueError:
+        return (None, None)
+
+    with SessionLocal() as db:
+        has_fcm = fcm_token_col == "fcm_token"
+        has_phone = phone_number_col == "phone_number"
+
+        if has_fcm and has_phone:
+            stmt = text("SELECT fcm_token, phone_number FROM users WHERE id = :user_id")
+        elif has_fcm:
+            stmt = text("SELECT fcm_token FROM users WHERE id = :user_id")
+        elif has_phone:
+            stmt = text("SELECT phone_number FROM users WHERE id = :user_id")
         else:
             return (None, None)
 
-        result = db.execute(stmt, {"user_id": db_user_id}).mappings().first()
+        result = db.execute(stmt, {"user_id": user_uuid}).mappings().first()
         if result is None:
             return (None, None)
         return (
@@ -216,7 +255,11 @@ def _send_termii_sms(*, phone_number: str, message: str) -> bool:
         return False
 
     if response.status_code >= 400:
-        logger.warning("Termii rejected SMS request with status=%s.", response.status_code)
+        logger.warning(
+            "Termii rejected SMS request with status=%s body=%s.",
+            response.status_code,
+            response.text,
+        )
         return False
 
     try:
@@ -225,23 +268,34 @@ def _send_termii_sms(*, phone_number: str, message: str) -> bool:
         logger.warning("Termii returned non-JSON SMS response.")
         return False
 
-    # Termii responses vary by route/version; accept common success markers.
-    if body.get("code") and str(body.get("code")).startswith("ok"):
+    # Termii responses vary by route/version; accept common success markers:
+    # "code": "ok" (API v1), "message_id" present, or "status": "success"/"ok".
+    if body.get("code") == "ok":
         return True
     if body.get("message_id"):
         return True
-    if isinstance(body.get("status"), str) and body.get("status", "").lower() in {"success", "ok"}:
+    status = body.get("status")
+    if isinstance(status, str) and status.lower() in {"success", "ok"}:
         return True
 
     logger.warning("Termii SMS response did not indicate success.")
     return False
 
 
-def _attempt_sms_fallback(*, push_sent: bool, event: str, target: NotificationTarget, message: str) -> tuple[bool, bool]:
-    """Attempt SMS fallback and return (attempted, sent)."""
+def _attempt_sms_fallback(
+    *,
+    push_sent: bool,
+    event: str,
+    target: NotificationTarget,
+    message: str,
+) -> SmsFallbackResult:
+    """Attempt SMS fallback and return delivery outcome."""
     if push_sent or not _should_send_sms(event) or not target.phone_number:
-        return (False, False)
-    return (True, _send_termii_sms(phone_number=target.phone_number, message=message))
+        return SmsFallbackResult(was_attempted=False, was_delivered=False)
+    return SmsFallbackResult(
+        was_attempted=True,
+        was_delivered=_send_termii_sms(phone_number=target.phone_number, message=message),
+    )
 
 
 @celery_app.task(
@@ -275,12 +329,14 @@ def send_order_notification_task(self, order_id: int, event: str) -> dict[str, s
     if target.fcm_token:
         push_sent = _send_fcm_notification(token=target.fcm_token, title=title, body=body, data=data)
 
-    sms_attempted, sms_sent = _attempt_sms_fallback(
+    sms_result = _attempt_sms_fallback(
         push_sent=push_sent,
         event=event,
         target=target,
         message=body,
     )
+    sms_attempted = sms_result.was_attempted
+    sms_sent = sms_result.was_delivered
 
     if push_sent:
         status = "delivered_fcm"
