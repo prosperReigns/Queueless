@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import quote
 
 import httpx
 from celery.exceptions import CeleryError
@@ -36,7 +37,9 @@ def verify_payment_backup_task(self, payment_reference: str) -> str:  # noqa: AR
 
     provider_status = _fetch_paystack_transaction_status(payment_reference)
     if provider_status is None:
-        raise RuntimeError("Failed to retrieve payment status from Paystack after retry attempts.")
+        raise RuntimeError(
+            f"Failed to retrieve payment status from Paystack after retry attempts for reference={payment_reference}."
+        )
     if provider_status != "success":
         return f"provider_status_{provider_status}"
 
@@ -88,7 +91,8 @@ def _get_payment_by_reference(reference: str, *, db: Session | None = None) -> P
 def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
     """Fetch transaction status from Paystack verify endpoint."""
     headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
-    url = f"{settings.PAYSTACK_BASE_URL.rstrip('/')}/transaction/verify/{payment_reference}"
+    safe_reference = quote(payment_reference, safe="")
+    url = f"{settings.PAYSTACK_BASE_URL.rstrip('/')}/transaction/verify/{safe_reference}"
     try:
         response = httpx.get(url, headers=headers, timeout=PAYSTACK_VERIFY_TIMEOUT_SECONDS)
     except httpx.HTTPError as exc:
@@ -112,11 +116,12 @@ def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
         payload = response.json()
     except ValueError:
         return None
-    if not payload.get("status"):
+    api_status = payload.get("status")
+    if not api_status:
         return None
     data = payload.get("data") or {}
-    status = data.get("status")
-    return status.lower() if isinstance(status, str) else None
+    transaction_status = data.get("status")
+    return transaction_status.lower() if isinstance(transaction_status, str) else None
 
 
 def schedule_payment_verification_fallback(payment_reference: str) -> None:
