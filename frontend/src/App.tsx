@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MessagePayload } from 'firebase/messaging'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AppRouter } from './routes/AppRouter'
 import { syncFcmTokenWithBackend } from './api/notifications'
 import { useAuth } from './hooks/useAuth'
@@ -73,8 +73,28 @@ function NotificationFeed({
 
 function App() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [notifications, setNotifications] = useState<InAppNotification[]>([])
   const syncedTokenRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      return
+    }
+
+    const handleServiceWorkerMessage = (event: MessageEvent<unknown>) => {
+      const payload = event.data as { type?: string; url?: string } | null
+      if (payload?.type !== 'notification-click' || typeof payload.url !== 'string') {
+        return
+      }
+      navigate(payload.url)
+    }
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
+    }
+  }, [navigate])
 
   useEffect(() => {
     if (!user) {
@@ -105,9 +125,12 @@ function App() {
 
       unsubscribe = await listenForForegroundMessages((payload) => {
         const inAppNotification = toInAppNotification(payload)
-        setNotifications((current) =>
-          [inAppNotification, ...current].slice(0, MAX_IN_APP_NOTIFICATIONS),
-        )
+        setNotifications((current) => {
+          if (current.length < MAX_IN_APP_NOTIFICATIONS) {
+            return [inAppNotification, ...current]
+          }
+          return [inAppNotification, ...current.slice(0, MAX_IN_APP_NOTIFICATIONS - 1)]
+        })
       })
     }
 
