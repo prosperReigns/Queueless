@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { listMerchantOrdersRequest } from '../../../api/orders'
+import { listOrdersRequest } from '../../../api/orders'
 import { ORDER_STATUS_LABELS } from '../../orders/orderStatus'
 import type { OrderStatus } from '../../../types/orders'
 import { getStoredAccessToken } from '../../../context/authStorage'
@@ -15,8 +15,8 @@ export function MerchantDashboardPage() {
   const { user } = useAuth()
 
   const ordersQuery = useQuery({
-    queryKey: ['merchant-dashboard-orders'],
-    queryFn: () => listMerchantOrdersRequest(),
+    queryKey: ['orders', user?.id],
+    queryFn: () => listOrdersRequest(),
     enabled: Boolean(user?.id),
     refetchInterval: 30000,
   })
@@ -30,10 +30,10 @@ export function MerchantDashboardPage() {
     return subscribeToOrderUpdates({
       token,
       onOrderEvent: () => {
-        void queryClient.invalidateQueries({ queryKey: ['merchant-dashboard-orders'] })
+        void queryClient.invalidateQueries({ queryKey: ['orders', user.id] })
       },
       onError: () => {
-        void queryClient.invalidateQueries({ queryKey: ['merchant-dashboard-orders'] })
+        void queryClient.invalidateQueries({ queryKey: ['orders', user.id] })
       },
     })
   }, [queryClient, user?.id])

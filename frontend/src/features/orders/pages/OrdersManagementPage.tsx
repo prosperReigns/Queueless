@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { OrderCard } from '../../../components/cards/OrderCard'
-import { listMerchantOrdersRequest, updateOrderStatusRequest } from '../../../api/orders'
+import { listOrdersRequest, updateOrderStatusRequest } from '../../../api/orders'
 import { useAuth } from '../../../hooks/useAuth'
 import { getStoredAccessToken } from '../../../context/authStorage'
 import { subscribeToOrderUpdates } from '../../../services/websocket'
@@ -15,8 +15,8 @@ export function OrdersManagementPage() {
   const { user } = useAuth()
 
   const merchantOrdersQuery = useQuery({
-    queryKey: ['merchant-orders', user?.id],
-    queryFn: () => listMerchantOrdersRequest(),
+    queryKey: ['orders', user?.id],
+    queryFn: () => listOrdersRequest(),
     enabled: Boolean(user?.id),
     refetchInterval: 30000,
   })
@@ -30,10 +30,10 @@ export function OrdersManagementPage() {
     return subscribeToOrderUpdates({
       token,
       onOrderEvent: () => {
-        void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })
+        void queryClient.invalidateQueries({ queryKey: ['orders', user.id] })
       },
       onError: () => {
-        void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user.id] })
+        void queryClient.invalidateQueries({ queryKey: ['orders', user.id] })
       },
     })
   }, [queryClient, user?.id])
@@ -42,7 +42,7 @@ export function OrdersManagementPage() {
     mutationFn: ({ orderId, status }: { orderId: number; status: OrderStatus }) =>
       updateOrderStatusRequest(orderId, { status }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['merchant-orders', user?.id] })
+      void queryClient.invalidateQueries({ queryKey: ['orders', user?.id] })
     },
   })
 
