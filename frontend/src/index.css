@@ -154,6 +154,47 @@ button:disabled {
   padding: 0.75rem;
 }
 
+.notification-feed {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  width: min(92vw, 360px);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.notification-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+.notification-card__content h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.notification-card__content p {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+.notification-card__dismiss {
+  line-height: 1;
+  min-width: 2rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
+
 @media (min-width: 640px) {
   .store-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
