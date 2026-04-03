@@ -41,6 +41,9 @@ def _authorize_order_access(
         if store is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
         role_scope.enforce_merchant_scope(store.owner_id)
+        return
+    if role_scope.user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
 
 
 @router.get("/orders/{order_id}", response_model=QRCodeResponse)
