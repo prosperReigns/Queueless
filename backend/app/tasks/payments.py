@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 import httpx
 from celery.exceptions import CeleryError
@@ -26,13 +26,13 @@ _PAYSTACK_REFERENCE_PATTERN = re.compile(r"^[A-Za-z0-9._:=+-]{1,255}$")
 
 @celery_app.task(
     bind=True,
-    name="app.tasks.payments.verify_payment_backup_task",
+    name="app.tasks.payments.verify_payment_fallback_task",
     autoretry_for=(Exception,),
     retry_backoff=True,
     retry_jitter=True,
     retry_kwargs={"max_retries": 3},
 )
-def verify_payment_backup_task(self, payment_reference: str) -> str:  # noqa: ARG001
+def verify_payment_fallback_task(self, payment_reference: str) -> str:  # noqa: ARG001
     """Verify payment status with provider as webhook fallback and reconcile order state."""
     if not settings.PAYSTACK_SECRET_KEY:
         return "missing_secret_key"
@@ -40,7 +40,7 @@ def verify_payment_backup_task(self, payment_reference: str) -> str:  # noqa: AR
     provider_status = _fetch_paystack_transaction_status(payment_reference)
     if provider_status is None:
         raise RuntimeError(
-            f"Failed to retrieve payment status from Paystack after retry attempts for reference={payment_reference}."
+            f"Failed to retrieve payment status from Paystack for reference={payment_reference}; task will retry if attempts remain."
         )
     if provider_status != "success":
         return f"provider_status_{provider_status}"
@@ -101,7 +101,7 @@ def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
 
     headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
     safe_reference = quote(payment_reference, safe="")
-    url = f"{settings.PAYSTACK_BASE_URL.rstrip('/')}/transaction/verify/{safe_reference}"
+    url = urljoin(f"{settings.PAYSTACK_BASE_URL.rstrip('/')}/", f"transaction/verify/{safe_reference}")
     try:
         response = httpx.get(url, headers=headers, timeout=PAYSTACK_VERIFY_TIMEOUT_SECONDS)
     except httpx.HTTPError as exc:
@@ -125,7 +125,8 @@ def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
         payload = response.json()
     except ValueError:
         return None
-    if payload.get("status") is not True:
+    api_status = payload.get("status")
+    if not _provider_response_ok(api_status):
         return None
     data = payload.get("data") or {}
     transaction_status = data.get("status")
@@ -135,7 +136,7 @@ def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
 def schedule_payment_verification_fallback(payment_reference: str) -> None:
     """Schedule delayed payment verification fallback task."""
     try:
-        verify_payment_backup_task.apply_async(
+        verify_payment_fallback_task.apply_async(
             args=[payment_reference],
             countdown=settings.PAYMENT_VERIFICATION_FALLBACK_DELAY_SECONDS,
         )
@@ -145,3 +146,12 @@ def schedule_payment_verification_fallback(payment_reference: str) -> None:
             extra={"event": "payment_fallback_enqueue_failed", "payment_reference": payment_reference},
             exc_info=exc,
         )
+
+
+def _provider_response_ok(value: object) -> bool:
+    """Normalize provider top-level status field across common truthy representations."""
+    if value is True or value == 1:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "ok", "success", "1"}
+    return False
