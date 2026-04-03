@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access, require_roles
@@ -19,6 +22,7 @@ from app.services.product_service import (
 from app.services.store_service import get_store_by_id
 
 router = APIRouter(tags=["products"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/stores/{store_id}/products", response_model=list[ProductResponse])
@@ -26,7 +30,15 @@ def get_store_products(store_id: int, db: Session = Depends(get_db)) -> list[Pro
     """List products for a store."""
     cached = cache_service.get_json(cache_service.store_products_key(store_id))
     if cached is not None:
-        return [ProductResponse.model_validate(product) for product in cached]
+        try:
+            return [ProductResponse.model_validate(product) for product in cached]
+        except ValidationError:
+            logger.warning(
+                "Invalid product list cache payload for store_id=%s. Rebuilding cache.",
+                store_id,
+                exc_info=True,
+            )
+            cache_service.invalidate_store_products(store_id)
 
     store = get_store_by_id(db, store_id)
     if store is None:
@@ -99,6 +111,6 @@ def delete_product_endpoint(
             detail="Store associated with this product was not found.",
         )
     role_scope.enforce_merchant_scope(store.owner_id)
-    cache_service.invalidate_store_products(product.store_id)
     delete_product(db, product)
+    cache_service.invalidate_store_products(product.store_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -25,12 +25,26 @@ class CacheService:
     def __init__(self, *, default_ttl_seconds: int = 300) -> None:
         settings = get_settings()
         self._default_ttl_seconds = default_ttl_seconds
-        self._client: Redis = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        self._redis_url = settings.REDIS_URL
+        self._client: Redis | None = None
+
+    def _get_client(self) -> Redis | None:
+        """Get or lazily build Redis client."""
+        if self._client is None:
+            try:
+                self._client = redis.from_url(self._redis_url, decode_responses=True)
+            except RedisError:
+                logger.warning("Cache client initialization failed.", exc_info=True)
+                return None
+        return self._client
 
     def get_json(self, key: str) -> Any | None:
         """Return parsed JSON value for a key when present."""
+        client = self._get_client()
+        if client is None:
+            return None
         try:
-            cached = self._client.get(key)
+            cached = client.get(key)
             if cached is None:
                 return None
             return json.loads(cached)
@@ -40,31 +54,40 @@ class CacheService:
 
     def set_json(self, key: str, value: Any, *, ttl_seconds: int | None = None) -> None:
         """Store a JSON-serializable value with TTL."""
+        client = self._get_client()
+        if client is None:
+            return
         ttl = ttl_seconds if ttl_seconds is not None else self._default_ttl_seconds
         try:
-            self._client.setex(key, ttl, json.dumps(value))
+            client.setex(key, ttl, json.dumps(value))
         except (RedisError, TypeError, ValueError):
             logger.warning("Cache write failed for key '%s'.", key, exc_info=True)
 
     def delete(self, key: str) -> None:
         """Delete a single cache key."""
+        client = self._get_client()
+        if client is None:
+            return
         try:
-            self._client.delete(key)
+            client.delete(key)
         except RedisError:
             logger.warning("Cache delete failed for key '%s'.", key, exc_info=True)
 
     def delete_by_pattern(self, pattern: str) -> None:
         """Delete all keys matching the pattern."""
+        client = self._get_client()
+        if client is None:
+            return
         try:
-            keys = list(self._iter_keys(pattern))
+            keys = list(self._iter_keys(client, pattern))
             if keys:
-                self._client.delete(*keys)
+                client.delete(*keys)
         except RedisError:
             logger.warning("Cache delete by pattern failed for '%s'.", pattern, exc_info=True)
 
-    def _iter_keys(self, pattern: str) -> Iterator[str]:
+    def _iter_keys(self, client: Redis, pattern: str) -> Iterator[str]:
         """Iterate matching keys using scan for production-safe traversal."""
-        return self._client.scan_iter(match=pattern)
+        return client.scan_iter(match=pattern)
 
     @classmethod
     def store_list_key(cls) -> str:

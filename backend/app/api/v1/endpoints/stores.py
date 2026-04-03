@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access, require_roles
@@ -18,6 +21,7 @@ from app.services.store_service import (
 )
 
 router = APIRouter(prefix="/stores", tags=["stores"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=list[StoreResponse])
@@ -25,7 +29,11 @@ def get_stores(db: Session = Depends(get_db)) -> list[StoreResponse]:
     """List stores."""
     cached = cache_service.get_json(cache_service.store_list_key())
     if cached is not None:
-        return [StoreResponse.model_validate(store) for store in cached]
+        try:
+            return [StoreResponse.model_validate(store) for store in cached]
+        except ValidationError:
+            logger.warning("Invalid store list cache payload. Rebuilding cache.", exc_info=True)
+            cache_service.invalidate_store_list()
 
     stores = list_stores(db)
     response = [StoreResponse.model_validate(store) for store in stores]
