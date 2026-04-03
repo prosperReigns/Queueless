@@ -26,6 +26,21 @@ def get_user_by_id(db: Session, user_id: uuid.UUID) -> User | None:
     return db.get(User, user_id)
 
 
+def list_users(db: Session) -> list[User]:
+    """Return all users ordered by newest first."""
+    stmt = select(User).order_by(User.created_at.desc())
+    return list(db.scalars(stmt).all())
+
+
+def set_user_active_status(db: Session, user: User, is_active: bool) -> User:
+    """Set active status on a user account."""
+    user.is_active = is_active
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def register_user(db: Session, payload: UserCreate) -> User:
     """Create a new user account."""
     email = payload.email.lower()
