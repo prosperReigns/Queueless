@@ -80,7 +80,6 @@ function App() {
 
   useEffect(() => {
     if (!user) {
-      setNotifications([])
       syncedTokenRef.current = null
       return
     }
