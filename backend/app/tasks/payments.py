@@ -31,17 +31,12 @@ PAYSTACK_VERIFY_TIMEOUT_SECONDS = 15
 )
 def verify_payment_backup_task(self, payment_reference: str) -> str:  # noqa: ARG001
     """Verify payment status with provider as webhook fallback and reconcile order state."""
-    payment = _get_payment_by_reference(payment_reference)
-    if payment is None:
-        return "payment_not_found"
-    if payment.status == PaymentStatus.SUCCESS:
-        return "already_success"
     if not settings.PAYSTACK_SECRET_KEY:
         return "missing_secret_key"
 
     provider_status = _fetch_paystack_transaction_status(payment_reference)
     if provider_status is None:
-        raise RuntimeError("provider_status_unavailable")
+        raise RuntimeError("Failed to retrieve payment status from Paystack after retry attempts.")
     if provider_status != "success":
         return f"provider_status_{provider_status}"
 
@@ -73,7 +68,7 @@ def verify_payment_backup_task(self, payment_reference: str) -> str:  # noqa: AR
                 db,
                 order,
                 OrderStatus.PAID,
-                actor=OrderStatusTransitionActor.PAYMENT_WEBHOOK,
+                actor=OrderStatusTransitionActor.PAYMENT_FALLBACK_VERIFICATION,
             )
             return "payment_and_order_reconciled"
 
