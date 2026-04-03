@@ -19,6 +19,7 @@ export function MerchantQrVerificationPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const intervalRef = useRef<number | null>(null)
+  const scanProcessingRef = useRef(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [qrDataInput, setQrDataInput] = useState('')
   const [orderIdInput, setOrderIdInput] = useState('')
@@ -36,7 +37,9 @@ export function MerchantQrVerificationPage() {
       streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
+    scanProcessingRef.current = false
     setIsScannerOpen(false)
+    setScanMessage('Open scanner to read a customer QR code.')
   }
 
   const applyVerificationResult = (response: QRCodeValidationResponse) => {
@@ -123,15 +126,20 @@ export function MerchantQrVerificationPage() {
       setScanMessage('Point the camera at the QR code.')
 
       intervalRef.current = window.setInterval(async () => {
+        if (scanProcessingRef.current) {
+          return
+        }
         const video = videoRef.current
         if (!video || video.readyState < 2) {
           return
         }
 
+        scanProcessingRef.current = true
         try {
           const barcodes = await detector.detect(video)
           const value = barcodes[0]?.rawValue?.trim()
           if (!value) {
+            scanProcessingRef.current = false
             return
           }
 
@@ -149,12 +157,14 @@ export function MerchantQrVerificationPage() {
             } else {
               setScanErrorMessage('QR captured, but verification failed. Use Verify QR to retry.')
             }
+            scanProcessingRef.current = false
           }
         } catch (error) {
           if (import.meta.env.DEV) {
             console.error('QR detection failed', error)
           }
           setScanErrorMessage('Unable to read QR yet. Keep camera steady.')
+          scanProcessingRef.current = false
         }
       }, SCAN_INTERVAL_MS)
     } catch (error) {
