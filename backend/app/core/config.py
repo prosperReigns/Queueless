@@ -17,6 +17,10 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "Queueless API"
     API_V1_PREFIX: str = "/api/v1"
+    FRONTEND_ORIGIN: str = "http://localhost:5173"
+    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_HEADERS: list[str] = ["Authorization", "Content-Type", "Accept", "Origin"]
+    CORS_ALLOW_METHODS: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     JWT_SECRET_KEY: str = Field(..., min_length=32, description="Signing key for JWT tokens")
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -35,6 +39,10 @@ class Settings(BaseSettings):
     )
     PAYSTACK_BASE_URL: str = "https://api.paystack.co"
     REDIS_URL: str = "redis://localhost:6379/0"
+    RATE_LIMIT_AUTH: str = "20/minute"
+    RATE_LIMIT_ORDER_CREATE: str = "10/minute"
+    RATE_LIMIT_PAYMENTS: str = "20/minute"
+    RATE_LIMIT_PAYMENT_WEBHOOK: str = "300/minute"
     CELERY_BROKER_URL: str | None = None
     CELERY_RESULT_BACKEND: str | None = None
     CELERY_TASK_ALWAYS_EAGER: bool = False

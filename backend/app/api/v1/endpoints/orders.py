@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,8 @@ from app.api.deps import (
     get_role_scope_access,
     require_roles,
 )
+from app.core.config import get_settings
+from app.core.rate_limiter import limiter
 from app.models.order import OrderStatus
 from app.models.store import Store
 from app.models.user import User, UserRole
@@ -27,6 +29,7 @@ from app.services.order_service import (
 from app.services.store_service import get_store_by_id
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+settings = get_settings()
 
 
 @router.get("", response_model=list[OrderResponse])
@@ -64,7 +67,9 @@ def list_orders_endpoint(
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(settings.RATE_LIMIT_ORDER_CREATE)
 def create_order_endpoint(
+    request: Request,
     payload: OrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.CUSTOMER)),
