@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     FRONTEND_ORIGIN: str = "http://localhost:5173"
     CORS_ALLOW_CREDENTIALS: bool = True
-    CORS_ALLOW_HEADERS: list[str] = ["*"]
+    CORS_ALLOW_HEADERS: list[str] = ["Authorization", "Content-Type", "Accept", "Origin"]
     CORS_ALLOW_METHODS: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     JWT_SECRET_KEY: str = Field(..., min_length=32, description="Signing key for JWT tokens")
     JWT_ALGORITHM: str = "HS256"

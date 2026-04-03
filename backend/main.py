@@ -49,8 +49,11 @@ class RequestUserMiddleware(BaseHTTPMiddleware):
                     user_id = uuid.UUID(sub)
                     with SessionLocal() as db:
                         request.state.user = get_user_by_id(db, user_id)
-            except (ValueError, SQLAlchemyError):
-                logger.warning("Failed to resolve request user from bearer token.", exc_info=True)
+            except ValueError:
+                logger.warning("Failed to decode bearer token or parse user id.", exc_info=True)
+                request.state.user = None
+            except SQLAlchemyError:
+                logger.warning("Failed to load authenticated user from database.", exc_info=True)
                 request.state.user = None
         return await call_next(request)
 
