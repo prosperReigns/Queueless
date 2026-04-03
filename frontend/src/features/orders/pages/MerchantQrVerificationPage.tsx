@@ -25,6 +25,7 @@ export function MerchantQrVerificationPage() {
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null)
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null)
   const [scanMessage, setScanMessage] = useState<string | null>('Open scanner to read a customer QR code.')
+  const [scanErrorMessage, setScanErrorMessage] = useState<string | null>(null)
 
   const stopScanner = () => {
     if (intervalRef.current !== null) {
@@ -69,6 +70,7 @@ export function MerchantQrVerificationPage() {
     onSuccess: (order) => {
       setVerificationMessage(`Order #${order.id} marked as completed.`)
       setActiveOrderId(order.id)
+      queryClient.setQueryData(['merchant-verified-order', order.id], order)
       void queryClient.invalidateQueries({ queryKey: ['orders'] })
       void queryClient.invalidateQueries({ queryKey: ['merchant-verified-order', order.id] })
     },
@@ -98,12 +100,12 @@ export function MerchantQrVerificationPage() {
     const barcodeDetectorCtor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector
 
     if (!barcodeDetectorCtor) {
-      setScanMessage('QR scan is not supported in this browser. Use QR payload or order ID.')
+      setScanErrorMessage('QR scan is not supported in this browser. Use QR payload or order ID.')
       return
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setScanMessage('Camera access is not available. Use QR payload or order ID.')
+      setScanErrorMessage('Camera access is not available. Use QR payload or order ID.')
       return
     }
 
@@ -112,12 +114,13 @@ export function MerchantQrVerificationPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       streamRef.current = stream
       setIsScannerOpen(true)
-      setScanMessage('Point the camera at the QR code.')
+      setScanErrorMessage(null)
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         await videoRef.current.play()
       }
+      setScanMessage('Point the camera at the QR code.')
 
       intervalRef.current = window.setInterval(async () => {
         const video = videoRef.current
@@ -142,31 +145,31 @@ export function MerchantQrVerificationPage() {
               console.error('QR verification failed after scan', error)
             }
             if (axios.isAxiosError<{ detail?: string }>(error)) {
-              setScanMessage(error.response?.data?.detail ?? 'QR captured, but verification failed. Use Verify QR to retry.')
+              setScanErrorMessage(error.response?.data?.detail ?? 'QR captured, but verification failed. Use Verify QR to retry.')
             } else {
-              setScanMessage('QR captured, but verification failed. Use Verify QR to retry.')
+              setScanErrorMessage('QR captured, but verification failed. Use Verify QR to retry.')
             }
           }
         } catch (error) {
           if (import.meta.env.DEV) {
             console.error('QR detection failed', error)
           }
-          setScanMessage('Unable to read QR yet. Keep camera steady.')
+          setScanErrorMessage('Unable to read QR yet. Keep camera steady.')
         }
       }, SCAN_INTERVAL_MS)
     } catch (error) {
       stopScanner()
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError') {
-          setScanMessage('Camera permission denied. Allow camera access, then try again.')
+          setScanErrorMessage('Camera permission denied. Allow camera access, then try again.')
           return
         }
         if (error.name === 'NotFoundError') {
-          setScanMessage('No camera detected on this device. Use QR payload or order ID.')
+          setScanErrorMessage('No camera detected on this device. Use QR payload or order ID.')
           return
         }
       }
-      setScanMessage('Unable to start camera. Use QR payload or order ID.')
+      setScanErrorMessage('Unable to start camera. Use QR payload or order ID.')
     }
   }
 
@@ -211,6 +214,7 @@ export function MerchantQrVerificationPage() {
           ) : null}
         </div>
         {scanMessage ? <p className="muted-text">{scanMessage}</p> : null}
+        {scanErrorMessage ? <p className="muted-text">{scanErrorMessage}</p> : null}
         {isScannerOpen ? <video ref={videoRef} className="merchant-qr-video" autoPlay muted playsInline /> : null}
       </article>
 
