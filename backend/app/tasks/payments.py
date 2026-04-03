@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from urllib.parse import quote
 
 import httpx
@@ -20,6 +21,7 @@ from app.tasks.celery_app import celery_app
 logger = logging.getLogger(__name__)
 settings = get_settings()
 PAYSTACK_VERIFY_TIMEOUT_SECONDS = 15
+_PAYSTACK_REFERENCE_PATTERN = re.compile(r"^[A-Za-z0-9._:=+-]{1,255}$")
 
 
 @celery_app.task(
@@ -90,6 +92,13 @@ def _get_payment_by_reference(reference: str, *, db: Session | None = None) -> P
 
 def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
     """Fetch transaction status from Paystack verify endpoint."""
+    if not _PAYSTACK_REFERENCE_PATTERN.fullmatch(payment_reference):
+        logger.warning(
+            "Payment fallback verification skipped due to invalid reference format.",
+            extra={"event": "payment_fallback_invalid_reference", "payment_reference": payment_reference},
+        )
+        return None
+
     headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
     safe_reference = quote(payment_reference, safe="")
     url = f"{settings.PAYSTACK_BASE_URL.rstrip('/')}/transaction/verify/{safe_reference}"
@@ -116,8 +125,7 @@ def _fetch_paystack_transaction_status(payment_reference: str) -> str | None:
         payload = response.json()
     except ValueError:
         return None
-    api_status = payload.get("status")
-    if not api_status:
+    if payload.get("status") is not True:
         return None
     data = payload.get("data") or {}
     transaction_status = data.get("status")
