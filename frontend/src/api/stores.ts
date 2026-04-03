@@ -6,6 +6,8 @@ export interface Store {
   description: string | null
   location: string | null
   is_active: boolean
+  owner_id: string
+  created_at: string
 }
 
 export interface Product {
@@ -16,6 +18,23 @@ export interface Product {
   price: number
   is_available: boolean
   image_url: string | null
+}
+
+export interface ProductCreateRequest {
+  store_id: number
+  name: string
+  description: string | null
+  price: number
+  is_available: boolean
+  image_url: string | null
+}
+
+export interface ProductUpdateRequest {
+  name?: string
+  description?: string | null
+  price?: number
+  is_available?: boolean
+  image_url?: string | null
 }
 
 export async function listStoresRequest(): Promise<Store[]> {
@@ -31,4 +50,18 @@ export async function getStoreRequest(storeId: number): Promise<Store> {
 export async function listStoreProductsRequest(storeId: number): Promise<Product[]> {
   const { data } = await apiClient.get<Product[]>(`/stores/${storeId}/products`)
   return data
+}
+
+export async function createProductRequest(payload: ProductCreateRequest): Promise<Product> {
+  const { data } = await apiClient.post<Product>('/products', payload)
+  return data
+}
+
+export async function updateProductRequest(productId: number, payload: ProductUpdateRequest): Promise<Product> {
+  const { data } = await apiClient.put<Product>(`/products/${productId}`, payload)
+  return data
+}
+
+export async function deleteProductRequest(productId: number): Promise<void> {
+  await apiClient.delete(`/products/${productId}`)
 }
