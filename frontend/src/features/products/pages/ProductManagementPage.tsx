@@ -187,17 +187,17 @@ export function ProductManagementPage() {
     }
 
     const parsedPrice = Number(trimmedPrice)
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
-      setFormError('Price must be a valid number greater than or equal to 0.')
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setFormError('Price must be a valid number greater than 0.')
       return
     }
 
     const payload = {
       name: trimmedName,
-      description: trimmedDescription ? trimmedDescription : null,
+      description: trimmedDescription || null,
       price: parsedPrice,
       is_available: formState.is_available,
-      image_url: trimmedImageUrl ? trimmedImageUrl : null,
+      image_url: trimmedImageUrl || null,
     }
 
     if (editingProductId !== null) {
