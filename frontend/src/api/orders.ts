@@ -20,18 +20,9 @@ export async function getOrderRequest(orderId: number): Promise<OrderResponse> {
   return data
 }
 
-export async function listMerchantOrdersRequest(maxFallbackOrderId = 25): Promise<OrderResponse[]> {
-  try {
-    const { data } = await apiClient.get<OrderResponse[]>('/orders')
-    return sortOrdersByCreatedAtDesc(data)
-  } catch {
-    const orderIds = Array.from({ length: maxFallbackOrderId }, (_, index) => index + 1)
-    const responses = await Promise.allSettled(orderIds.map((id) => getOrderRequest(id)))
-    const orders = responses
-      .filter((result): result is PromiseFulfilledResult<OrderResponse> => result.status === 'fulfilled')
-      .map((result) => result.value)
-    return sortOrdersByCreatedAtDesc(orders)
-  }
+export async function listOrdersRequest(): Promise<OrderResponse[]> {
+  const { data } = await apiClient.get<OrderResponse[]>('/orders')
+  return sortOrdersByCreatedAtDesc(data)
 }
 
 export async function updateOrderStatusRequest(

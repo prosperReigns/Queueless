@@ -37,17 +37,11 @@ const performRefresh = async (): Promise<string | null> => {
   }
 
   try {
-    const { data } = await refreshClient.post<{ access_token: string; refresh_token?: string }>(
+    const { data } = await refreshClient.post<{ access_token: string; token_type: string }>(
       '/auth/refresh',
       { refresh_token: refreshToken },
     )
-
-    if (!data.refresh_token) {
-      clearStoredAuth()
-      return null
-    }
-
-    storeTokens(data.access_token, data.refresh_token)
+    storeTokens(data.access_token, refreshToken)
     return data.access_token
   } catch (refreshError) {
     if (import.meta.env.DEV) {
