@@ -17,6 +17,7 @@ from app.models.order import Order, OrderStatus
 from app.models.payment import Payment, PaymentProvider, PaymentStatus
 from app.models.user import User
 from app.services.order_service import OrderStatusTransitionActor, update_order_status
+from app.tasks.payments import schedule_payment_verification_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +201,7 @@ def initialize_paystack_payment(
             "payment_status": payment.status.value,
         },
     )
+    schedule_payment_verification_fallback(payment.reference)
 
     return {
         "payment": payment,

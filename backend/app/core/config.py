@@ -38,6 +38,12 @@ class Settings(BaseSettings):
         description="Paystack secret key used for transaction initialization and webhook verification",
     )
     PAYSTACK_BASE_URL: str = "https://api.paystack.co"
+    PAYMENT_VERIFICATION_FALLBACK_DELAY_SECONDS: int = Field(
+        default=300,
+        ge=30,
+        le=86400,
+        description="Delay before fallback verification task checks payment status with provider.",
+    )
     REDIS_URL: str = "redis://localhost:6379/0"
     RATE_LIMIT_AUTH: str = "20/minute"
     RATE_LIMIT_ORDER_CREATE: str = "10/minute"
