@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.security import create_token, get_password_hash, verify_password
+from app.core.security import create_token, decode_token, get_password_hash, verify_password
 from app.models.user import User
 from app.schemas.token import TokenPair
 from app.schemas.user import UserCreate
@@ -70,3 +70,34 @@ def create_token_pair_for_user(user: User) -> TokenPair:
         extra_claims={"role": user.role.value},
     )
     return TokenPair(access_token=access_token, refresh_token=refresh_token)
+
+
+def create_access_token_from_refresh_token(db: Session, refresh_token: str) -> str:
+    """Validate refresh token and return a newly issued access token."""
+    payload = decode_token(refresh_token)
+    subject = payload.get("sub")
+    token_type = payload.get("type")
+    role = payload.get("role")
+
+    if subject is None or token_type != "refresh":
+        raise ValueError("Invalid refresh token.")
+
+    try:
+        user_id = uuid.UUID(str(subject))
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Invalid refresh token.") from exc
+
+    user = get_user_by_id(db, user_id)
+    if user is None or not user.is_active:
+        raise ValueError("Invalid refresh token.")
+
+    if role is not None and role != user.role.value:
+        raise ValueError("Invalid refresh token.")
+
+    settings = get_settings()
+    return create_token(
+        subject=str(user.id),
+        expires_delta=timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+        token_type="access",
+        extra_claims={"role": user.role.value, "email": user.email},
+    )

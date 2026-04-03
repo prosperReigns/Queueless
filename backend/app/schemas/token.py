@@ -18,3 +18,16 @@ class TokenPair(BaseModel):
     access_token: str = Field(min_length=1)
     refresh_token: str = Field(min_length=1)
     token_type: str = Field(default="bearer", min_length=1)
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request payload for token refresh."""
+
+    refresh_token: str = Field(min_length=1)
+
+
+class AccessTokenResponse(BaseModel):
+    """Access token response payload."""
+
+    access_token: str = Field(min_length=1)
+    token_type: str = Field(default="bearer", min_length=1)
