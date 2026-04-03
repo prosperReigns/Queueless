@@ -27,6 +27,7 @@ class OrderStatusTransitionActor(str, Enum):
 
     MERCHANT = "merchant"
     PAYMENT_WEBHOOK = "payment_webhook"
+    PAYMENT_FALLBACK_VERIFICATION = "payment_fallback_verification"
     SYSTEM = "system"
 
 
@@ -41,6 +42,9 @@ _ALLOWED_STATUS_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
 
 _ACTOR_ALLOWED_TRANSITIONS: dict[OrderStatusTransitionActor, dict[OrderStatus, set[OrderStatus]]] = {
     OrderStatusTransitionActor.PAYMENT_WEBHOOK: {
+        OrderStatus.PENDING: {OrderStatus.PAID},
+    },
+    OrderStatusTransitionActor.PAYMENT_FALLBACK_VERIFICATION: {
         OrderStatus.PENDING: {OrderStatus.PAID},
     },
     OrderStatusTransitionActor.MERCHANT: {

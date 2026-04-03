@@ -12,6 +12,7 @@ from typing import Any
 
 import firebase_admin
 import httpx
+from celery.exceptions import CeleryError
 from firebase_admin import credentials, messaging
 from sqlalchemy import text
 
@@ -366,4 +367,11 @@ def send_order_notification_task(self, order_id: int, event: str) -> dict[str, s
 
 def queue_order_notification(order_id: int, event: str) -> None:
     """Enqueue non-blocking order notification task."""
-    send_order_notification_task.delay(order_id, event)
+    try:
+        send_order_notification_task.delay(order_id, event)
+    except CeleryError as exc:
+        logger.warning(
+            "Failed to enqueue order notification task.",
+            extra={"event": "order_notification_enqueue_failed", "order_id": order_id, "notification_event": event},
+            exc_info=exc,
+        )
