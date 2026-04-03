@@ -12,6 +12,7 @@ import {
 } from './services/firebase'
 
 const MAX_IN_APP_NOTIFICATIONS = 5
+const LIFECYCLE_SYNC_THROTTLE_MS = 15000
 
 interface InAppNotification {
   id: string
@@ -104,24 +105,32 @@ function App() {
 
     let active = true
     let unsubscribe: (() => void) | null = null
+    let lastSyncTime = 0
+    let isLifecycleSyncInFlight = false
 
-    const initializePushNotifications = async () => {
+    const syncToken = async () => {
       const permission =
         getCurrentNotificationPermission() === 'granted' ? 'granted' : await requestPushPermission()
 
       if (!active || permission !== 'granted') {
-        return
+        return null
       }
 
       const fcmToken = await getFcmRegistrationToken()
       if (!active || !fcmToken) {
-        return
+        return null
       }
 
       if (syncedTokenRef.current !== fcmToken) {
         await syncFcmTokenWithBackend(fcmToken)
         syncedTokenRef.current = fcmToken
       }
+
+      return fcmToken
+    }
+
+    const initializePushNotifications = async () => {
+      await syncToken()
 
       unsubscribe = await listenForForegroundMessages((payload) => {
         const inAppNotification = toInAppNotification(payload)
@@ -134,14 +143,42 @@ function App() {
       })
     }
 
+    const onLifecycleSync = () => {
+      if (!active) {
+        return
+      }
+
+      const now = Date.now()
+      if (isLifecycleSyncInFlight || now - lastSyncTime < LIFECYCLE_SYNC_THROTTLE_MS) {
+        return
+      }
+
+      lastSyncTime = now
+      isLifecycleSyncInFlight = true
+      void syncToken().catch((error: unknown) => {
+        if (import.meta.env.DEV) {
+          console.warn('FCM token lifecycle sync failed', error)
+        }
+      }).finally(() => {
+        isLifecycleSyncInFlight = false
+      })
+    }
+
     initializePushNotifications().catch((error: unknown) => {
       if (import.meta.env.DEV) {
         console.warn('Push notification setup failed', error)
       }
     })
 
+    window.addEventListener('focus', onLifecycleSync)
+    window.addEventListener('online', onLifecycleSync)
+    document.addEventListener('visibilitychange', onLifecycleSync)
+
     return () => {
       active = false
+      window.removeEventListener('focus', onLifecycleSync)
+      window.removeEventListener('online', onLifecycleSync)
+      document.removeEventListener('visibilitychange', onLifecycleSync)
       unsubscribe?.()
     }
   }, [user])
