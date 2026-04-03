@@ -27,6 +27,17 @@ def upsert_notification_token(
         select(NotificationToken).where(NotificationToken.token == normalized_token)
     )
     if existing_token is not None:
+        if normalized_device_type:
+            existing_device_token = db.scalar(
+                select(NotificationToken).where(
+                    NotificationToken.user_id == user_id,
+                    NotificationToken.device_type == normalized_device_type,
+                    NotificationToken.id != existing_token.id,
+                )
+            )
+            if existing_device_token is not None:
+                db.delete(existing_device_token)
+                db.flush()
         existing_token.user_id = user_id
         existing_token.device_type = normalized_device_type
         db.add(existing_token)

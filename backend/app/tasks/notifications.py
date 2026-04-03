@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -117,7 +118,7 @@ def _get_phone_number_column_name() -> str | None:
         return "phone_number" if "phone_number" in columns else None
 
 
-def _get_optional_user_phone_number(recipient_id: Any) -> str | None:
+def _get_optional_user_phone_number(recipient_id: uuid.UUID) -> str | None:
     """Read optional user phone number when that column exists in DB."""
     phone_number_col = _get_phone_number_column_name()
     if not phone_number_col:
