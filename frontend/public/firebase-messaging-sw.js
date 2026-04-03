@@ -43,7 +43,7 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
       for (const client of clientsArr) {
         if ('focus' in client) {
-          return client.focus()
+          return client.focus().then(() => client.navigate(url))
         }
       }
 

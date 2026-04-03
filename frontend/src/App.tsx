@@ -12,7 +12,7 @@ import {
 } from './services/firebase'
 
 interface InAppNotification {
-  id: number
+  id: string
   title: string
   body: string
   orderId: string | null
@@ -28,7 +28,7 @@ function toInAppNotification(payload: MessagePayload): InAppNotification | null 
   }
 
   return {
-    id: Date.now() + Math.floor(Math.random() * 1000),
+    id: crypto.randomUUID(),
     title,
     body,
     orderId,
@@ -40,7 +40,7 @@ function NotificationFeed({
   onDismiss,
 }: {
   notifications: InAppNotification[]
-  onDismiss: (id: number) => void
+  onDismiss: (id: string) => void
 }) {
   if (notifications.length === 0) {
     return null
