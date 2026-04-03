@@ -19,6 +19,35 @@ settings = get_settings()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
 
 
+class RoleScopeAccess:
+    """Role-aware access helper for resource-scoped authorization."""
+
+    def __init__(self, user: User) -> None:
+        self.user = user
+
+    def enforce_customer_scope(self, customer_id: uuid.UUID) -> None:
+        """Allow admin or the matching customer."""
+        if self.user.role == UserRole.ADMIN:
+            return
+        if self.user.role == UserRole.CUSTOMER and customer_id == self.user.id:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions.",
+        )
+
+    def enforce_merchant_scope(self, merchant_owner_id: uuid.UUID) -> None:
+        """Allow admin or the matching merchant store owner."""
+        if self.user.role == UserRole.ADMIN:
+            return
+        if self.user.role == UserRole.MERCHANT and merchant_owner_id == self.user.id:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions.",
+        )
+
+
 def get_current_user(
     db: Session = Depends(get_db),
     token: str = Depends(oauth2_scheme),
@@ -76,10 +105,17 @@ def require_roles(*allowed_roles: UserRole) -> Callable[..., User]:
     return _role_dependency
 
 
+def get_role_scope_access(current_user: User = Depends(get_current_active_user)) -> RoleScopeAccess:
+    """Return scoped RBAC authorizer for the current active user."""
+    return RoleScopeAccess(current_user)
+
+
 __all__ = [
     "get_db",
     "oauth2_scheme",
     "get_current_user",
     "get_current_active_user",
     "require_roles",
+    "RoleScopeAccess",
+    "get_role_scope_access",
 ]

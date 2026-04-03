@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_active_user, get_db, require_roles
+from app.api.deps import (
+    RoleScopeAccess,
+    get_current_active_user,
+    get_db,
+    get_role_scope_access,
+    require_roles,
+)
 from app.models.order import OrderStatus
 from app.models.store import Store
 from app.models.user import User, UserRole
@@ -75,19 +81,22 @@ def create_order_endpoint(
 def get_order_endpoint(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> OrderResponse:
     """Get a single order if authorized."""
     order = get_order_by_id(db, order_id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
 
-    if current_user.role == UserRole.CUSTOMER and order.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
-    if current_user.role == UserRole.MERCHANT:
+    if role_scope.user.role == UserRole.CUSTOMER:
+        role_scope.enforce_customer_scope(order.user_id)
+    elif role_scope.user.role == UserRole.MERCHANT:
         store = get_store_by_id(db, order.store_id)
-        if store is None or store.owner_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
+        if store is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
+        role_scope.enforce_merchant_scope(store.owner_id)
+    elif role_scope.user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions.")
 
     return OrderResponse.model_validate(order)
 
@@ -97,7 +106,8 @@ def update_order_status_endpoint(
     order_id: int,
     payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.MERCHANT)),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
+    role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> OrderResponse:
     """Update order status for merchant-owned store orders."""
     order = get_order_by_id(db, order_id)
@@ -107,11 +117,7 @@ def update_order_status_endpoint(
     store = get_store_by_id(db, order.store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
-    if current_user.role == UserRole.MERCHANT and store.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only manage orders for your own stores.",
-        )
+    role_scope.enforce_merchant_scope(store.owner_id)
 
     try:
         updated = update_order_status(

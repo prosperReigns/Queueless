@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_roles
-from app.models.user import User, UserRole
+from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access, require_roles
+from app.models.user import User
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.services.product_service import (
     create_product,
@@ -34,17 +34,14 @@ def get_store_products(store_id: int, db: Session = Depends(get_db)) -> list[Pro
 def create_product_endpoint(
     payload: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.MERCHANT)),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
+    role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> ProductResponse:
     """Create a product for a merchant-owned store."""
     store = get_store_by_id(db, payload.store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
-    if current_user.role == UserRole.MERCHANT and store.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only manage products in your own stores.",
-        )
+    role_scope.enforce_merchant_scope(store.owner_id)
     product = create_product(db, payload)
     return ProductResponse.model_validate(product)
 
@@ -54,7 +51,8 @@ def update_product_endpoint(
     product_id: int,
     payload: ProductUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.MERCHANT)),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
+    role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> ProductResponse:
     """Update a product in a merchant-owned store."""
     product = get_product_by_id(db, product_id)
@@ -66,11 +64,7 @@ def update_product_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Store associated with this product was not found.",
         )
-    if current_user.role == UserRole.MERCHANT and store.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only manage products in your own stores.",
-        )
+    role_scope.enforce_merchant_scope(store.owner_id)
     updated = update_product(db, product, payload)
     return ProductResponse.model_validate(updated)
 
@@ -79,7 +73,8 @@ def update_product_endpoint(
 def delete_product_endpoint(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.MERCHANT)),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
+    role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> Response:
     """Delete a product in a merchant-owned store."""
     product = get_product_by_id(db, product_id)
@@ -91,10 +86,6 @@ def delete_product_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Store associated with this product was not found.",
         )
-    if current_user.role == UserRole.MERCHANT and store.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only manage products in your own stores.",
-        )
+    role_scope.enforce_merchant_scope(store.owner_id)
     delete_product(db, product)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

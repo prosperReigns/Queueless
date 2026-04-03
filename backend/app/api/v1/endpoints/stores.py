@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_roles
-from app.models.user import User, UserRole
+from app.api.deps import RoleScopeAccess, get_db, get_role_scope_access, require_roles
+from app.models.user import User
 from app.schemas.store import StoreCreate, StoreResponse, StoreUpdate
 from app.services.store_service import (
     create_store,
@@ -51,17 +51,14 @@ def update_store_endpoint(
     store_id: int,
     payload: StoreUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.MERCHANT)),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
+    role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> StoreResponse:
     """Update an owned store."""
     store = get_store_by_id(db, store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
-    if current_user.role == UserRole.MERCHANT and store.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only manage your own stores.",
-        )
+    role_scope.enforce_merchant_scope(store.owner_id)
     updated = update_store(db, store, payload)
     return StoreResponse.model_validate(updated)
 
@@ -70,16 +67,13 @@ def update_store_endpoint(
 def delete_store_endpoint(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.MERCHANT)),
+    _: User = Depends(require_roles(UserRole.MERCHANT)),
+    role_scope: RoleScopeAccess = Depends(get_role_scope_access),
 ) -> Response:
     """Delete an owned store."""
     store = get_store_by_id(db, store_id)
     if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
-    if current_user.role == UserRole.MERCHANT and store.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only manage your own stores.",
-        )
+    role_scope.enforce_merchant_scope(store.owner_id)
     delete_store(db, store)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
