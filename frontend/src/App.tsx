@@ -105,23 +105,29 @@ function App() {
     let active = true
     let unsubscribe: (() => void) | null = null
 
-    const initializePushNotifications = async () => {
+    const syncToken = async () => {
       const permission =
         getCurrentNotificationPermission() === 'granted' ? 'granted' : await requestPushPermission()
 
       if (!active || permission !== 'granted') {
-        return
+        return null
       }
 
       const fcmToken = await getFcmRegistrationToken()
       if (!active || !fcmToken) {
-        return
+        return fcmToken
       }
 
       if (syncedTokenRef.current !== fcmToken) {
         await syncFcmTokenWithBackend(fcmToken)
         syncedTokenRef.current = fcmToken
       }
+
+      return fcmToken
+    }
+
+    const initializePushNotifications = async () => {
+      await syncToken()
 
       unsubscribe = await listenForForegroundMessages((payload) => {
         const inAppNotification = toInAppNotification(payload)
@@ -134,14 +140,33 @@ function App() {
       })
     }
 
+    const onLifecycleSync = () => {
+      if (!active) {
+        return
+      }
+
+      void syncToken().catch((error: unknown) => {
+        if (import.meta.env.DEV) {
+          console.warn('FCM token lifecycle sync failed', error)
+        }
+      })
+    }
+
     initializePushNotifications().catch((error: unknown) => {
       if (import.meta.env.DEV) {
         console.warn('Push notification setup failed', error)
       }
     })
 
+    window.addEventListener('focus', onLifecycleSync)
+    window.addEventListener('online', onLifecycleSync)
+    document.addEventListener('visibilitychange', onLifecycleSync)
+
     return () => {
       active = false
+      window.removeEventListener('focus', onLifecycleSync)
+      window.removeEventListener('online', onLifecycleSync)
+      document.removeEventListener('visibilitychange', onLifecycleSync)
       unsubscribe?.()
     }
   }, [user])
