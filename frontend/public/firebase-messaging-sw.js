@@ -1,0 +1,51 @@
+/* global importScripts, firebase */
+importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js')
+importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging-compat.js')
+
+const firebaseConfig = {
+  apiKey: self?.location ? undefined : undefined,
+}
+
+if (
+  typeof firebase !== 'undefined' &&
+  firebaseConfig.apiKey &&
+  firebaseConfig.projectId &&
+  firebaseConfig.messagingSenderId &&
+  firebaseConfig.appId
+) {
+  firebase.initializeApp(firebaseConfig)
+  const messaging = firebase.messaging()
+
+  messaging.onBackgroundMessage((payload) => {
+    const title = payload?.notification?.title || payload?.data?.title || 'Notification'
+    const body = payload?.notification?.body || payload?.data?.body || 'You have a new update.'
+    const orderId = payload?.data?.order_id
+
+    const notificationOptions = {
+      body,
+      data: orderId ? { url: `/orders/${orderId}` } : undefined,
+    }
+
+    void self.registration.showNotification(title, notificationOptions)
+  })
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = event.notification?.data?.url || '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
+      for (const client of clientsArr) {
+        if ('focus' in client) {
+          return client.focus()
+        }
+      }
+
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url)
+      }
+
+      return undefined
+    }),
+  )
+})
