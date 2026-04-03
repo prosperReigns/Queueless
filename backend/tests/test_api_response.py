@@ -30,3 +30,13 @@ def test_error_response_shape() -> None:
         },
         "request_id": "req-123",
     }
+
+
+def test_error_response_includes_request_id_key_when_missing() -> None:
+    payload = error_response(
+        error="Internal server error.",
+        code="INTERNAL_SERVER_ERROR",
+    )
+
+    assert "request_id" in payload
+    assert payload["request_id"] is None

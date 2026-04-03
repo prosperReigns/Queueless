@@ -76,7 +76,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        request_id = str(uuid.uuid4())
+        incoming_request_id = request.headers.get("X-Request-ID")
+        if incoming_request_id:
+            candidate = incoming_request_id.strip()
+            if candidate and len(candidate) <= 64:
+                try:
+                    request_id = str(uuid.UUID(candidate))
+                except ValueError:
+                    logger.warning("Invalid X-Request-ID header received; generated a new request ID.")
         request.state.request_id = request_id
 
         logger.info(
@@ -148,10 +156,16 @@ async def request_validation_exception_handler(
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, _exc: Exception) -> JSONResponse:
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Return standardized payload for unhandled server errors."""
     request_id = getattr(request.state, "request_id", None)
-    logger.exception("Unhandled exception while processing request.")
+    logger.error(
+        "Unhandled exception while processing request.",
+        extra={
+            "request_id": request_id,
+            "error_type": exc.__class__.__name__,
+        },
+    )
     return JSONResponse(
         status_code=500,
         content=error_response(

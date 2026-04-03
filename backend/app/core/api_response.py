@@ -22,14 +22,12 @@ def error_response(
     request_id: str | None = None,
 ) -> dict[str, Any]:
     """Build a standard error API payload."""
-    payload: dict[str, Any] = {
+    return {
         "success": False,
         "error": {
             "code": code,
             "message": error,
             "details": details,
         },
+        "request_id": request_id,
     }
-    if request_id:
-        payload["request_id"] = request_id
-    return payload
