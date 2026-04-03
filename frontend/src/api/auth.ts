@@ -1,5 +1,6 @@
 import { apiClient } from './client'
 import type { AuthUser, UserRole } from '../types/auth'
+import { USER_ROLES } from '../types/constants'
 
 interface LoginRequest {
   email: string
@@ -27,8 +28,8 @@ interface MeResponse {
 const toUserRole = (role: string): UserRole => {
   const normalized = role.toUpperCase()
 
-  if (normalized === 'CUSTOMER' || normalized === 'MERCHANT' || normalized === 'ADMIN') {
-    return normalized
+  if (USER_ROLES.includes(normalized as UserRole)) {
+    return normalized as UserRole
   }
 
   throw new Error(`Unsupported user role received: ${role}`)

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { listOrdersRequest } from '../../../api/orders'
 import { useAuth } from '../../../hooks/useAuth'
+import { ACTIVE_ORDER_STATUSES } from '../../../types/constants'
 
 const RECENT_ORDERS_LIMIT = 5
 
@@ -16,7 +17,7 @@ export function CustomerDashboardPage() {
   })
 
   const orders = ordersQuery.data ?? []
-  const activeOrdersCount = orders.filter((order) => ['pending', 'paid', 'preparing', 'ready'].includes(order.status)).length
+  const activeOrdersCount = orders.filter((order) => ACTIVE_ORDER_STATUSES.has(order.status)).length
   const completedOrdersCount = orders.filter((order) => order.status === 'completed').length
   const recentOrders = orders.slice(0, RECENT_ORDERS_LIMIT)
 
