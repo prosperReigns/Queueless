@@ -37,29 +37,24 @@ export function MerchantQrVerificationPage() {
     setIsScannerOpen(false)
   }
 
+  const applyVerificationResult = (response: QRCodeValidationResponse) => {
+    setVerificationMessage(response.message)
+    if (response.is_valid && response.order_id) {
+      setActiveOrderId(response.order_id)
+    } else {
+      setActiveOrderId(null)
+    }
+  }
+
   const verifyQrMutation = useMutation({
     mutationFn: (qrData: string) => validateQrCodeRequest({ qr_data: qrData }),
-    onSuccess: (response) => {
-      setVerificationMessage(response.message)
-      if (response.is_valid && response.order_id) {
-        setActiveOrderId(response.order_id)
-      } else {
-        setActiveOrderId(null)
-      }
-    },
+    onSuccess: applyVerificationResult,
   })
 
   const resolveOrderMutation = useMutation({
     mutationFn: (orderId: number) =>
       validateQrCodeRequest({ qr_data: JSON.stringify({ type: 'order_pickup', order_id: orderId }) }),
-    onSuccess: (response) => {
-      setVerificationMessage(response.message)
-      if (response.is_valid && response.order_id) {
-        setActiveOrderId(response.order_id)
-      } else {
-        setActiveOrderId(null)
-      }
-    },
+    onSuccess: applyVerificationResult,
   })
 
   const selectedOrderQuery = useQuery({
@@ -95,15 +90,6 @@ export function MerchantQrVerificationPage() {
   const selectedOrder = selectedOrderQuery.data
 
   const canComplete = selectedOrder?.status === 'ready' && !completeOrderMutation.isPending
-
-  const applyVerificationResult = (response: QRCodeValidationResponse) => {
-    setVerificationMessage(response.message)
-    if (response.is_valid && response.order_id) {
-      setActiveOrderId(response.order_id)
-    } else {
-      setActiveOrderId(null)
-    }
-  }
 
   const handleScan = async () => {
     const barcodeDetectorCtor = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector
@@ -145,8 +131,12 @@ export function MerchantQrVerificationPage() {
 
           setQrDataInput(value)
           stopScanner()
-          const response = await validateQrCodeRequest({ qr_data: value })
-          applyVerificationResult(response)
+          try {
+            const response = await validateQrCodeRequest({ qr_data: value })
+            applyVerificationResult(response)
+          } catch {
+            setScanMessage('QR captured, but verification failed. Use Verify QR to retry.')
+          }
         } catch {
           setScanMessage('Unable to read QR yet. Keep camera steady.')
         }
