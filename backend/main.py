@@ -29,6 +29,7 @@ from app.core.security import decode_token
 configure_logging()
 logger = logging.getLogger(__name__)
 settings = get_settings()
+MAX_REQUEST_ID_LENGTH = 64
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -80,7 +81,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         incoming_request_id = request.headers.get("X-Request-ID")
         if incoming_request_id:
             candidate = incoming_request_id.strip()
-            if candidate and len(candidate) <= 64:
+            if candidate and len(candidate) <= MAX_REQUEST_ID_LENGTH:
                 try:
                     request_id = str(uuid.UUID(candidate))
                 except ValueError:
