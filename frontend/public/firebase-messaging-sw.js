@@ -2,8 +2,14 @@
 importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging-compat.js')
 
+const url = new URL(self.location.href)
 const firebaseConfig = {
-  apiKey: self?.location ? undefined : undefined,
+  apiKey: url.searchParams.get('apiKey') || '',
+  authDomain: url.searchParams.get('authDomain') || '',
+  projectId: url.searchParams.get('projectId') || '',
+  storageBucket: url.searchParams.get('storageBucket') || '',
+  messagingSenderId: url.searchParams.get('messagingSenderId') || '',
+  appId: url.searchParams.get('appId') || '',
 }
 
 if (

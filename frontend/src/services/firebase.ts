@@ -45,7 +45,16 @@ const registerMessagingServiceWorker = async () => {
     return null
   }
 
-  return navigator.serviceWorker.register('/firebase-messaging-sw.js')
+  const params = new URLSearchParams({
+    apiKey: firebaseConfig.apiKey ?? '',
+    authDomain: firebaseConfig.authDomain ?? '',
+    projectId: firebaseConfig.projectId ?? '',
+    storageBucket: firebaseConfig.storageBucket ?? '',
+    messagingSenderId: firebaseConfig.messagingSenderId ?? '',
+    appId: firebaseConfig.appId ?? '',
+  })
+
+  return navigator.serviceWorker.register(`/firebase-messaging-sw.js?${params.toString()}`)
 }
 
 export function getCurrentNotificationPermission(): NotificationPermission {
