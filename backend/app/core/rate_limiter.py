@@ -10,6 +10,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from app.core.api_response import error_response
 from app.core.config import get_settings
 
 
@@ -44,11 +45,16 @@ def ensure_redis_storage_connectivity() -> None:
         ) from exc
 
 
-def rate_limit_exceeded_handler(_request: Request, _exc: RateLimitExceeded) -> JSONResponse:
+def rate_limit_exceeded_handler(request: Request, _exc: RateLimitExceeded) -> JSONResponse:
     """Return JSON error payload for rate-limit violations."""
+    request_id = getattr(request.state, "request_id", None)
     return JSONResponse(
         status_code=429,
-        content={"detail": "Too many requests. Please try again later."},
+        content=error_response(
+            error="Too many requests. Please try again later.",
+            code="RATE_LIMIT_EXCEEDED",
+            request_id=request_id,
+        ),
     )
 
 
