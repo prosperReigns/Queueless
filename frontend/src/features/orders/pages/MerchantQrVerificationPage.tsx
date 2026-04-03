@@ -12,6 +12,7 @@ const parseOrderId = (value: string): number | null => {
 type DetectedBarcode = { rawValue?: string }
 type QRBarcodeDetector = { detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]> }
 type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => QRBarcodeDetector
+const SCAN_INTERVAL_MS = 1000
 
 export function MerchantQrVerificationPage() {
   const queryClient = useQueryClient()
@@ -74,7 +75,9 @@ export function MerchantQrVerificationPage() {
   })
 
   const primaryErrorMessage = useMemo(() => {
-    const candidate = verifyQrMutation.error ?? resolveOrderMutation.error ?? completeOrderMutation.error ?? selectedOrderQuery.error
+    const candidate = [verifyQrMutation.error, resolveOrderMutation.error, completeOrderMutation.error, selectedOrderQuery.error].find(
+      (error) => Boolean(error),
+    )
     return axios.isAxiosError<{ detail?: string }>(candidate)
       ? candidate.response?.data?.detail ?? 'Action failed. Try again.'
       : candidate
@@ -134,16 +137,36 @@ export function MerchantQrVerificationPage() {
           try {
             const response = await validateQrCodeRequest({ qr_data: value })
             applyVerificationResult(response)
-          } catch {
-            setScanMessage('QR captured, but verification failed. Use Verify QR to retry.')
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.error('QR verification failed after scan', error)
+            }
+            if (axios.isAxiosError<{ detail?: string }>(error)) {
+              setScanMessage(error.response?.data?.detail ?? 'QR captured, but verification failed. Use Verify QR to retry.')
+            } else {
+              setScanMessage('QR captured, but verification failed. Use Verify QR to retry.')
+            }
           }
-        } catch {
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('QR detection failed', error)
+          }
           setScanMessage('Unable to read QR yet. Keep camera steady.')
         }
-      }, 500)
-    } catch {
+      }, SCAN_INTERVAL_MS)
+    } catch (error) {
       stopScanner()
-      setScanMessage('Camera access failed. Use QR payload or order ID.')
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError') {
+          setScanMessage('Camera permission denied. Allow camera access, then try again.')
+          return
+        }
+        if (error.name === 'NotFoundError') {
+          setScanMessage('No camera detected on this device. Use QR payload or order ID.')
+          return
+        }
+      }
+      setScanMessage('Unable to start camera. Use QR payload or order ID.')
     }
   }
 
