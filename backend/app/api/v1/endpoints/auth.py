@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
 from app.models.user import User
-from app.schemas.token import LoginRequest, TokenPair
+from app.schemas.token import AccessTokenResponse, LoginRequest, RefreshTokenRequest, TokenPair
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth_service import (
     authenticate_user,
+    create_access_token_from_refresh_token,
     create_token_pair_for_user,
     register_user,
 )
@@ -49,3 +50,19 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
 def me(current_user: User = Depends(get_current_active_user)) -> UserResponse:
     """Return authenticated user profile."""
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/refresh", response_model=AccessTokenResponse)
+def refresh_access_token(
+    payload: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+) -> AccessTokenResponse:
+    """Refresh access token using a valid refresh token."""
+    try:
+        access_token = create_access_token_from_refresh_token(db, payload.refresh_token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token.",
+        ) from exc
+    return AccessTokenResponse(access_token=access_token)

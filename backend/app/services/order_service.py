@@ -7,7 +7,7 @@ from enum import Enum
 import logging
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.order import Order, OrderStatus
@@ -61,6 +61,41 @@ def get_order_by_id(db: Session, order_id: int) -> Order | None:
     """Return an order by id with items eagerly loaded."""
     stmt = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
     return db.scalar(stmt)
+
+
+def list_orders(
+    db: Session,
+    *,
+    user_id: uuid.UUID | None = None,
+    store_ids: list[int] | None = None,
+    status: OrderStatus | None = None,
+    skip: int = 0,
+    limit: int = 50,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+) -> list[Order]:
+    """Return orders with optional scope, filtering, pagination, and sorting."""
+    stmt: Select[tuple[Order]] = select(Order).options(selectinload(Order.items))
+
+    if user_id is not None:
+        stmt = stmt.where(Order.user_id == user_id)
+    if store_ids is not None:
+        if not store_ids:
+            return []
+        stmt = stmt.where(Order.store_id.in_(store_ids))
+    if status is not None:
+        stmt = stmt.where(Order.status == status)
+
+    sortable_columns = {
+        "created_at": Order.created_at,
+        "id": Order.id,
+        "total_amount": Order.total_amount,
+        "status": Order.status,
+    }
+    sort_column = sortable_columns.get(sort_by, Order.created_at)
+    stmt = stmt.order_by(sort_column.asc() if sort_order == "asc" else sort_column.desc(), Order.id.desc())
+    stmt = stmt.offset(skip).limit(limit)
+    return list(db.scalars(stmt).all())
 
 
 def validate_order_status_transition(
