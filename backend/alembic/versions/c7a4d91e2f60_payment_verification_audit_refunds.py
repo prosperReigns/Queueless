@@ -76,9 +76,11 @@ def upgrade() -> None:
         sa.CheckConstraint("amount > 0", name="ck_payment_refunds_amount_positive"),
     )
     op.create_index("ix_payment_refunds_payment_id", "payment_refunds", ["payment_id"])
+    op.create_index("ix_payment_refunds_provider_refund_id", "payment_refunds", ["provider_refund_id"])
 
 
 def downgrade() -> None:
+    op.drop_index("ix_payment_refunds_provider_refund_id", table_name="payment_refunds")
     op.drop_index("ix_payment_refunds_payment_id", table_name="payment_refunds")
     op.drop_table("payment_refunds")
     op.drop_index("ix_payment_status_history_payment_id", table_name="payment_status_history")
