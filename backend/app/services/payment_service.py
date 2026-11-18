@@ -153,6 +153,19 @@ def _apply_verified_transaction(db: Session, payment: Payment, data: Dict[str, A
     return provider_status or "unknown"
 
 
+def has_valid_guest_checkout_token(order: Order, token: Optional[str]) -> bool:
+    """Validate a guest token while handling SQLite's naive datetime round-trips."""
+    if order.user_id is not None or not order.guest_access_token_hash or not order.guest_access_token_expires_at:
+        return False
+    expires_at = order.guest_access_token_expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= datetime.now(timezone.utc):
+        return False
+    supplied_hash = hashlib.sha256((token or "").encode()).hexdigest()
+    return secrets.compare_digest(supplied_hash, order.guest_access_token_hash)
+
+
 def initialize_paystack_payment(
     db: Session, *, order_id: int, user: Optional[User],
     guest_access_token: Optional[str] = None, callback_url: Optional[str] = None,
@@ -160,18 +173,12 @@ def initialize_paystack_payment(
     order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
     if order is None:
         raise ValueError("Order not found.")
-    if user is not None:
-        if order.user_id != user.id:
-            raise ValueError("Not enough permissions.")
+    if user is not None and order.user_id == user.id:
         payer_email = user.email
-    else:
-        supplied_hash = hashlib.sha256((guest_access_token or "").encode()).hexdigest()
-        if (order.user_id is not None or not order.guest_access_token_hash
-            or not order.guest_access_token_expires_at
-            or order.guest_access_token_expires_at <= datetime.now(timezone.utc)
-            or not secrets.compare_digest(supplied_hash, order.guest_access_token_hash)):
-            raise ValueError("A valid guest checkout token is required.")
+    elif has_valid_guest_checkout_token(order, guest_access_token):
         payer_email = order.customer_email
+    else:
+        raise ValueError("Valid order owner credentials are required.")
     if not payer_email:
         raise ValueError("A customer email address is required for payment.")
     if order.status != OrderStatus.PENDING:
