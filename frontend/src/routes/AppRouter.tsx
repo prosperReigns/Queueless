@@ -5,6 +5,7 @@ import { CustomerDashboardPage } from '../features/dashboard/pages/CustomerDashb
 import { MerchantDashboardPage } from '../features/dashboard/pages/MerchantDashboardPage'
 import { AdminDashboardPage } from '../features/dashboard/pages/AdminDashboardPage'
 import { KitchenDashboardPage } from '../features/kitchen/pages/KitchenDashboardPage'
+import { BusinessManagementPage } from '../features/business/pages/BusinessManagementPage'
 import { FulfillmentDashboardPage } from '../features/fulfillment/pages/FulfillmentDashboardPage'
 import { BranchReportsPage } from '../features/reports/pages/BranchReportsPage'
 import { BranchOrderTrackingPage } from '../features/orders/pages/BranchOrderTrackingPage'
@@ -64,6 +65,7 @@ export function AppRouter() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
+          <Route path="dashboard/business" element={<BusinessManagementPage />} />
           <Route path="dashboard/kitchen" element={<KitchenDashboardPage />} />
           <Route path="dashboard/fulfillment" element={<FulfillmentDashboardPage />} />
           <Route path="dashboard/merchant/reports" element={<BranchReportsPage />} />
