@@ -370,3 +370,33 @@ def initiate_paystack_refund(db: Session, *, payment_reference: str, amount: Opt
     db.commit()
     db.refresh(refund)
     return refund
+
+
+def reconcile_paystack_refund(db: Session, refund_reference: str) -> PaymentRefund:
+    """Fetch a refund by its unique reference and reconcile its provider status."""
+    refund = db.scalar(select(PaymentRefund).where(PaymentRefund.reference == refund_reference).with_for_update())
+    if refund is None:
+        raise ValueError("Refund not found.")
+    response = _provider_request("GET", "refund", params={"reference": refund_reference})
+    data = response["data"]
+    if isinstance(data, list):
+        match = next((item for item in data if item.get("reference") == refund_reference), None)
+    elif isinstance(data, dict) and data.get("reference") == refund_reference:
+        match = data
+    else:
+        match = None
+    if match is None:
+        raise ValueError("Paystack has no refund record for this reference yet.")
+    provider_status = str(match.get("status") or "pending").lower().replace("-", "_")
+    normalized = provider_status if provider_status in {"pending", "processing", "processed", "failed", "needs_attention"} else "pending"
+    if refund.status != "processed" and normalized == "processed":
+        payment = db.scalar(select(Payment).where(Payment.id == refund.payment_id).with_for_update())
+        if payment is not None:
+            payment.amount_refunded = (Decimal(payment.amount_refunded or 0) + Decimal(refund.amount)).quantize(Decimal("0.01"))
+        refund.processed_at = datetime.now(timezone.utc)
+    refund.status = normalized
+    if match.get("id") is not None:
+        refund.provider_refund_id = str(match["id"])
+    db.commit()
+    db.refresh(refund)
+    return refund
