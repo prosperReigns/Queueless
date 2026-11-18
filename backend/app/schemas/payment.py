@@ -1,4 +1,4 @@
-"""Payment-related Pydantic schemas."""
+"""Payment API request and response schemas."""
 from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
@@ -11,24 +11,48 @@ class PaymentInitiateRequest(BaseModel):
     callback_url: Optional[str] = Field(default=None, min_length=1, max_length=2048)
     guest_access_token: Optional[str] = Field(default=None, min_length=32, max_length=128)
 
-class PaymentWebhookRequest(BaseModel):
+class PaymentVerifyRequest(BaseModel):
     reference: str = Field(min_length=1, max_length=255)
-    status: PaymentStatus
-    amount: Decimal = Field(gt=Decimal("0"), max_digits=10, decimal_places=2)
-    provider: PaymentProvider = PaymentProvider.PAYSTACK
+    guest_access_token: Optional[str] = Field(default=None, min_length=32, max_length=128)
+
+class PaymentRefundRequest(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    payment_reference: str = Field(min_length=1, max_length=255)
+    amount: Optional[Decimal] = Field(default=None, gt=Decimal("0"), max_digits=10, decimal_places=2)
+    reason: Optional[str] = Field(default=None, max_length=500)
 
 class PaymentResponse(BaseModel):
-    id: int = Field(gt=0)
-    order_id: int = Field(gt=0)
-    reference: str = Field(min_length=1, max_length=255)
+    id: int
+    order_id: int
+    reference: str
     status: PaymentStatus
-    amount: Decimal = Field(gt=Decimal("0"), max_digits=10, decimal_places=2)
+    amount: Decimal
+    currency: str = "NGN"
     provider: PaymentProvider
+    provider_transaction_id: Optional[str] = None
+    amount_refunded: Decimal = Decimal("0.00")
+    paid_at: Optional[datetime] = None
+    failure_reason: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 class PaymentInitiateResponse(BaseModel):
     payment: PaymentResponse
-    authorization_url: str = Field(min_length=1, max_length=2048)
-    access_code: str = Field(min_length=1, max_length=255)
-    reference: str = Field(min_length=1, max_length=255)
+    authorization_url: str
+    access_code: str
+    reference: str
+
+class PaymentRefundResponse(BaseModel):
+    id: int
+    payment_id: int
+    reference: str
+    idempotency_key: str
+    provider_refund_id: Optional[str] = None
+    amount: Decimal
+    currency: str
+    status: str
+    reason: Optional[str] = None
+    last_error: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
