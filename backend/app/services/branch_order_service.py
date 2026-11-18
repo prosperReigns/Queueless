@@ -35,7 +35,7 @@ def create_branch_order(db: Session, payload, user_id=None):
             raise ValueError("One or more menu items are unavailable at this branch.")
         if item.category_id is not None:
             category = db.get(MenuCategory, item.category_id)
-            if category is None or not category.is_active:
+            if category is None or not category.is_active or category.business_id != branch.business_id:
                 raise ValueError(f"{item.name} is not in an active menu category.")
         override = db.scalar(select(BranchMenuItem).where(BranchMenuItem.branch_id == branch.id, BranchMenuItem.menu_item_id == item.id))
         if override is not None and not override.is_available:
