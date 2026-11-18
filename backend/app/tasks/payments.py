@@ -30,6 +30,8 @@ def verify_payment_fallback_task(self, payment_reference: str) -> str:  # noqa: 
             raise RuntimeError(str(exc)) from exc
         if provider_status == "success":
             return "payment_and_order_reconciled"
+        if provider_status in {"pending", "ongoing", "processing", "queued", "unknown"}:
+            raise RuntimeError(f"Paystack transaction is still {provider_status}; retry reconciliation.")
         return f"provider_status_{provider_status}"
 
 
