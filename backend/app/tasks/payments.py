@@ -24,7 +24,7 @@ def verify_payment_fallback_task(self, payment_reference: str) -> str:  # noqa: 
     from app.services.payment_service import verify_payment_and_reconcile
     with SessionLocal() as db:
         try:
-            payment, provider_status = verify_payment_and_reconcile(db, payment_reference)
+            payment, provider_status = verify_payment_and_reconcile(db, payment_reference, source="fallback_verification")
         except ValueError as exc:
             # A transient provider/network failure should be retried by Celery.
             raise RuntimeError(str(exc)) from exc
