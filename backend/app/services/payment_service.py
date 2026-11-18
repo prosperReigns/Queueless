@@ -27,8 +27,6 @@ from app.tasks.payments import schedule_payment_verification_fallback
 
 logger = logging.getLogger(__name__)
 PAYSTACK_TIMEOUT_SECONDS = 15
-CURRENCY = "NGN"
-
 
 def get_payment_by_reference(db: Session, reference: str) -> Optional[Payment]:
     return db.scalar(select(Payment).where(Payment.reference == reference))
@@ -41,10 +39,11 @@ def _get_or_create_payment_for_order(db: Session, order: Order) -> Payment:
     payment = Payment(
         order_id=order.id, reference=order.payment_reference,
         status=PaymentStatus.PENDING, amount=order.total_amount,
-        currency=CURRENCY, provider=PaymentProvider.PAYSTACK,
+        currency=get_settings().PAYMENT_CURRENCY, provider=PaymentProvider.PAYSTACK,
     )
     db.add(payment)
     db.flush()
+    db.add(PaymentStatusHistory(payment_id=payment.id, previous_status=None, new_status=PaymentStatus.PENDING.value, source="initialization", note="Payment record created."))
     return payment
 
 
@@ -242,7 +241,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
     payload = event.get("data") or {}
     reference = payload.get("reference") if isinstance(payload, dict) else None
     if event_type in {"refund.processed", "refund.failed"} and isinstance(payload, dict):
-        event_key = hashlib.sha256(raw_body).hexdigest()
+        event_key = hashlib.sha256(json.dumps(event, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         event_row = db.scalar(select(PaymentEvent).where(
             PaymentEvent.provider == PaymentProvider.PAYSTACK,
             PaymentEvent.event_key == event_key,
@@ -266,7 +265,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
             payment = db.scalar(select(Payment).where(Payment.id == refund.payment_id).with_for_update())
             if payment is not None:
                 payment.amount_refunded = (Decimal(payment.amount_refunded or 0) + Decimal(refund.amount)).quantize(Decimal("0.01"))
-        elif event_type == "refund.failed":
+        elif event_type == "refund.failed" and refund.status != "processed":
             refund.status = "failed"
         event_row.processing_status = "processed"
         event_row.processed_at = datetime.now(timezone.utc)
