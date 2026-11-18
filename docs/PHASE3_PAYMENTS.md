@@ -43,13 +43,14 @@ Refund pending, processing, needs-attention, failed and processed events update 
 
 ```json
 {
+  "idempotency_key": "refund-request-2026-0001",
   "payment_reference": "ORDER_PAYMENT_REFERENCE",
   "amount": "500.00",
   "reason": "Customer requested refund"
 }
 ```
 
-Omit `amount` to refund the remaining refundable balance. Only successful payments can be refunded. Access is limited to Qless admins, authorized business owners/franchise admins/branch managers, or the legacy store owner. Refund amounts are reserved against pending refund requests to prevent concurrent over-refunding.
+Omit `amount` to refund the remaining refundable balance. Only successful payments can be refunded. Access is limited to Qless admins, authorized business owners/franchise admins/branch managers, or the legacy store owner. Refund amounts are reserved against pending refund requests to prevent concurrent over-refunding. Every request must include a stable client-generated idempotency key; retrying the same request returns the existing refund record instead of issuing another refund.
 
 Paystack refund requests use a unique Qless-generated refund reference. Provider outcomes are stored as `pending`, `processing`, `processed`, `failed`, `needs_attention`, or `pending_unknown`. If the request times out, do not blindly submit another refund: use reconciliation first.
 
