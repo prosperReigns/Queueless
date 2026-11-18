@@ -15,7 +15,7 @@ export interface KitchenTicket {
   ticket_id: number
   order_id: number
   branch_id: string
-  status: 'NEW' | 'ACCEPTED' | 'PREPARING' | 'READY'
+  status: 'new' | 'accepted' | 'preparing' | 'ready'
   order_source: string | null
   fulfillment_method: string | null
   scheduled_for: string | null
