@@ -197,6 +197,79 @@ def test_e2e_customer_order_payment_and_merchant_completion_flow(client):
     assert completed_resp.status_code == 200, completed_resp.text
     assert completed_resp.json()["status"] == "completed"
 
+    # 9) Merchant initiates a partial refund with an idempotency key.
+    refund_payload = {
+        "idempotency_key": "refund-e2e-0001",
+        "payment_reference": order["payment_reference"],
+        "amount": "500.00",
+        "reason": "Partial customer refund",
+    }
+    refund_resp = client.post(
+        "/api/v1/payments/refunds",
+        json=refund_payload,
+        headers=_auth_headers(merchant_tokens["access_token"]),
+    )
+    assert refund_resp.status_code == 201, refund_resp.text
+    refund = refund_resp.json()
+    assert refund["status"] == "pending"
+    assert refund["amount"] == "500.00"
+
+    # A client retry with the same key returns the same refund; it does not call Paystack again.
+    refund_retry_resp = client.post(
+        "/api/v1/payments/refunds",
+        json=refund_payload,
+        headers=_auth_headers(merchant_tokens["access_token"]),
+    )
+    assert refund_retry_resp.status_code == 201, refund_retry_resp.text
+    assert refund_retry_resp.json()["id"] == refund["id"]
+    assert refund_retry_resp.json()["reference"] == refund["reference"]
+
+    refund_reconcile_resp = client.post(
+        f"/api/v1/payments/refunds/{refund['reference']}/reconcile",
+        headers=_auth_headers(merchant_tokens["access_token"]),
+    )
+    assert refund_reconcile_resp.status_code == 200, refund_reconcile_resp.text
+    assert refund_reconcile_resp.json()["status"] == "processed"
+
+    # A late refund webhook is also idempotent and does not double-count the refunded amount.
+    refund_webhook_payload = {
+        "event": "refund.processed",
+        "data": {
+            "id": 123456,
+            "refund_reference": refund["reference"],
+            "transaction_reference": order["payment_reference"],
+            "amount": 50000,
+            "currency": "NGN",
+        },
+    }
+    refund_raw_body = json.dumps(refund_webhook_payload).encode("utf-8")
+    refund_signature = hmac.new(secret.encode("utf-8"), msg=refund_raw_body, digestmod=hashlib.sha512).hexdigest()
+    refund_webhook_resp = client.post(
+        "/api/v1/payments/webhook",
+        content=refund_raw_body,
+        headers={"x-paystack-signature": refund_signature, "content-type": "application/json"},
+    )
+    assert refund_webhook_resp.status_code == 200, refund_webhook_resp.text
+    assert refund_webhook_resp.json()["reason"] == "refund_processed"
+
+    refund_duplicate_resp = client.post(
+        "/api/v1/payments/webhook",
+        content=refund_raw_body,
+        headers={"x-paystack-signature": refund_signature, "content-type": "application/json"},
+    )
+    assert refund_duplicate_resp.status_code == 200
+    assert refund_duplicate_resp.json()["reason"] == "duplicate_event"
+
+    verified_after_refund = client.post(
+        "/api/v1/payments/verify",
+        json={"reference": order["payment_reference"]},
+        headers=_auth_headers(customer_tokens["access_token"]),
+    )
+    assert verified_after_refund.status_code == 200
+    assert verified_after_refund.json()["payment"]["status"] == "success"
+    assert verified_after_refund.json()["payment"]["amount_refunded"] == "500.00"
+    assert verified_after_refund.json()["order_status"] == "completed"
+
     final_customer_view = client.get(
         f"/api/v1/orders/{order['id']}",
         headers=_auth_headers(customer_tokens["access_token"]),
