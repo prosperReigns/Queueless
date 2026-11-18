@@ -4,6 +4,10 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage'
 import { CustomerDashboardPage } from '../features/dashboard/pages/CustomerDashboardPage'
 import { MerchantDashboardPage } from '../features/dashboard/pages/MerchantDashboardPage'
 import { AdminDashboardPage } from '../features/dashboard/pages/AdminDashboardPage'
+import { KitchenDashboardPage } from '../features/kitchen/pages/KitchenDashboardPage'
+import { FulfillmentDashboardPage } from '../features/fulfillment/pages/FulfillmentDashboardPage'
+import { BranchReportsPage } from '../features/reports/pages/BranchReportsPage'
+import { BranchOrderTrackingPage } from '../features/orders/pages/BranchOrderTrackingPage'
 import { CartPage } from '../features/orders/pages/CartPage'
 import { CheckoutPage } from '../features/orders/pages/CheckoutPage'
 import { OrderDetailsPage } from '../features/orders/pages/OrderDetailsPage'
@@ -26,6 +30,7 @@ export function AppRouter() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
+        <Route path="track/:orderId" element={<BranchOrderTrackingPage />} />
         <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
           <Route index element={<StoresPage />} />
           <Route path="stores/:storeId" element={<StoreDetailsPage />} />
@@ -54,6 +59,14 @@ export function AppRouter() {
           <Route path="dashboard/merchant/verify" element={<MerchantQrVerificationPage />} />
           <Route path="dashboard/merchant/products" element={<ProductManagementPage />} />
           <Route path="dashboard/merchant/store" element={<StoreManagementPage />} />
+        </Route>
+      </Route>
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="dashboard/kitchen" element={<KitchenDashboardPage />} />
+          <Route path="dashboard/fulfillment" element={<FulfillmentDashboardPage />} />
+          <Route path="dashboard/merchant/reports" element={<BranchReportsPage />} />
         </Route>
       </Route>
 
