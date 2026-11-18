@@ -5,6 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 from app.db.base import Base
+from app.core.config import get_settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -19,8 +20,13 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from app.db import models 
+from app.db import models  # noqa: F401
 target_metadata = Base.metadata
+
+# Use the same environment-driven database URL as the application. Escape percent
+# signs because ConfigParser treats them as interpolation markers.
+database_url = get_settings().DATABASE_URL
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
