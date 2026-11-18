@@ -166,3 +166,18 @@ Implemented on `feature/qless-phase-4`:
 - Added Alembic revision `d4b8e1a6c903`, service state-machine tests and Phase 4 API/reliability documentation.
 
 **Verification still required:** no local test suite or PostgreSQL migration has been executed in this environment. Run compile checks and all tests, then apply the migration to fresh and disposable-existing PostgreSQL databases. Exercise WebSocket reconnect/replay and branch access isolation before production.
+
+
+## Phase 5 implementation status
+
+Implemented on `feature/qless-phase-5`:
+
+- Added a separate fulfillment record so payment/order status, kitchen ticket status and physical handoff status remain distinct.
+- A branch order receives an `awaiting_preparation` fulfillment record when its paid kitchen ticket is created; moving the kitchen ticket to `READY` advances fulfillment to `ready_for_collection` in the same database transaction.
+- Added customer/guest order tracking and explicit collection-credential issuance. Credentials are order-specific, branch-bound, short-lived, single-use, and stored only as SHA-256 hashes. Customers receive a QR payload and an eight-digit PIN once; a lost or expired credential can be explicitly rotated.
+- Added branch-authorized collection redemption for owner, franchise-admin, branch-manager and collection-staff roles. Redemption locks the credential and fulfillment rows, checks branch, expiry, payment, readiness and unused status, and commits redemption plus its audit event atomically.
+- Self-collection transitions to `collected`; customer-arranged external rider handoff transitions to `rider_collected`. Qless does not assign riders or claim to track delivery after handoff.
+- Added fulfillment event audit history, Alembic revision `e6f2a9c4d810`, API schemas, documentation and credential parsing tests.
+- The permanent branch QR remains only a menu/branch identifier; it is not accepted as a collection credential.
+
+**Verification still required:** run compile checks and the full backend suite; apply all migrations through `e6f2a9c4d810` against fresh and disposable-existing PostgreSQL databases. Test simultaneous redemption, credential rotation, expiry, wrong-branch attempts and both handoff methods before production.

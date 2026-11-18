@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.kitchen import KitchenEvent, KitchenTicket, KitchenTicketStatus
 from app.models.order import Order, OrderStatus
+from app.services.fulfillment_service import ensure_order_fulfillment, mark_fulfillment_ready
 
 
 _ALLOWED_TRANSITIONS = {
@@ -59,6 +60,7 @@ def ensure_kitchen_ticket(db: Session, order: Order, *, commit: bool = True) -> 
     )
     db.add(ticket)
     db.flush()
+    ensure_order_fulfillment(db, order)
     _record_event(
         db,
         ticket,
@@ -89,6 +91,8 @@ def transition_kitchen_ticket(
     elif target == KitchenTicketStatus.READY:
         ticket.ready_at = now
     db.add(ticket)
+    if target == KitchenTicketStatus.READY:
+        mark_fulfillment_ready(db, ticket.order)
     _record_event(
         db,
         ticket,
