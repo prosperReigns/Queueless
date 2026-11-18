@@ -10,6 +10,7 @@ import { FulfillmentDashboardPage } from '../features/fulfillment/pages/Fulfillm
 import { BranchReportsPage } from '../features/reports/pages/BranchReportsPage'
 import { BranchOrderTrackingPage } from '../features/orders/pages/BranchOrderTrackingPage'
 import { BranchOrderingPage } from '../features/orders/pages/BranchOrderingPage'
+import { CustomerBranchOrdersPage } from '../features/orders/pages/CustomerBranchOrdersPage'
 import { CartPage } from '../features/orders/pages/CartPage'
 import { CheckoutPage } from '../features/orders/pages/CheckoutPage'
 import { OrderDetailsPage } from '../features/orders/pages/OrderDetailsPage'
@@ -54,6 +55,7 @@ export function AppRouter() {
 
       <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
         <Route path="dashboard/customer" element={<CustomerDashboardPage />} />
+        <Route path="dashboard/customer/branch-orders" element={<CustomerBranchOrdersPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
