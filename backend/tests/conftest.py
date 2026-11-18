@@ -109,21 +109,41 @@ def client(db_session_fixture: Session, monkeypatch: pytest.MonkeyPatch) -> Gene
 
     class _MockResponse:
         status_code = 200
-
-        @staticmethod
-        def json() -> Dict[str, object]:
-            return {
-                "status": True,
-                "data": {
-                    "authorization_url": "https://paystack.test/authorize",
-                    "access_code": "test_access_code",
-                    "reference": "provider-test-reference",
-                },
-            }
-
         text = "ok"
 
-    monkeypatch.setattr("app.services.payment_service.httpx.post", lambda *args, **kwargs: _MockResponse())
+        def __init__(self, data: Dict[str, object]):
+            self._data = data
+
+        def json(self) -> Dict[str, object]:
+            return {"status": True, "data": self._data}
+
+    def mock_paystack_post(_url, *, json=None, **_kwargs):
+        payload = json or {}
+        return _MockResponse({
+            "authorization_url": "https://paystack.test/authorize",
+            "access_code": "test_access_code",
+            "reference": payload.get("reference"),
+        })
+
+    def mock_paystack_get(url, **_kwargs):
+        from decimal import Decimal
+        from app.models.payment import Payment
+        reference = url.rstrip("/").rsplit("/", 1)[-1]
+        payment = db_session_fixture.scalar(
+            __import__("sqlalchemy").select(Payment).where(Payment.reference == reference)
+        )
+        amount = int(Decimal(payment.amount) * 100) if payment else 0
+        return _MockResponse({
+            "id": 987654321,
+            "status": "success",
+            "reference": reference,
+            "amount": amount,
+            "currency": "NGN",
+            "paid_at": "2026-11-18T12:00:00.000Z",
+        })
+
+    monkeypatch.setattr("app.services.payment_service.httpx.post", mock_paystack_post)
+    monkeypatch.setattr("app.services.payment_service.httpx.get", mock_paystack_get)
 
     with TestClient(app) as test_client:
         yield test_client
