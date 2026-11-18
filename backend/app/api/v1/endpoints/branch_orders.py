@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-from app.api.deps import get_db, get_optional_current_user
+from app.api.deps import get_db, get_optional_current_user, get_current_active_user
 from app.core.config import get_settings
 from app.core.rate_limiter import limiter
 from app.models.user import User, UserRole
@@ -44,6 +44,42 @@ def create_branch_order_endpoint(
         "payment_reference": order.payment_reference,
         "guest_access_token": guest_token,
     }
+
+
+@router.get("/orders/branch/mine")
+def list_my_branch_orders(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+):
+    """List the authenticated customer's Qless branch orders without mixing legacy store schemas."""
+    if user.role != UserRole.CUSTOMER:
+        raise HTTPException(status_code=403, detail="Customer account required.")
+    stmt = (
+        select(Order)
+        .options(selectinload(Order.items))
+        .where(Order.user_id == user.id, Order.branch_id.is_not(None))
+        .order_by(Order.created_at.desc(), Order.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    orders = db.scalars(stmt).all()
+    return [{
+        "id": order.id,
+        "branch_id": str(order.branch_id),
+        "order_source": order.order_source.value if order.order_source else None,
+        "fulfillment_method": order.fulfillment_method.value if order.fulfillment_method else None,
+        "customer_name": order.customer_name,
+        "total_amount": str(order.total_amount),
+        "status": order.status.value,
+        "created_at": order.created_at,
+        "items": [{
+            "item_name": item.item_name,
+            "quantity": item.quantity,
+            "unit_price": str(item.price),
+        } for item in order.items],
+    } for order in orders]
 
 @router.get("/branches/{branch_id}/orders")
 def list_branch_orders(
