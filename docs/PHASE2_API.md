@@ -7,7 +7,7 @@ All routes are under `/api/v1`.
 - `POST /businesses/{business_id}/menu/categories` — owner/franchise administrator creates a category.
 - `POST /businesses/{business_id}/menu/items` — owner/franchise administrator creates a business-level menu item with a base price and category.
 - `PATCH /branches/{branch_id}/menu/items/{item_id}` — owner, franchise administrator or branch manager overrides availability and/or price for one branch.
-- `GET /public/branches/resolve/{branch_qr_token}/menu` — public menu for the branch represented by its permanent QR code.
+- `GET /public/businesses/{business_slug}/branches` — public list of active branches for preorder discovery.\n- `GET /public/branches/{branch_id}/menu` — public menu for a selected branch during remote preorder.\n- `GET /public/branches/resolve/{branch_qr_token}/menu` — public menu for the branch represented by its permanent QR code.
 
 The menu item is defined once at business scope. A branch can hide it or override its price without changing other branches. If no branch override exists, the business base price and availability apply.
 
