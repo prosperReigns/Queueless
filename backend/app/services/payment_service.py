@@ -137,6 +137,7 @@ def _apply_verified_transaction(db: Session, payment: Payment, data: Dict[str, A
         if order is not None and order.status == OrderStatus.PENDING:
             update_order_status(db, order, OrderStatus.PAID, actor=(
                 OrderStatusTransitionActor.PAYMENT_WEBHOOK if source == "webhook"
+                else OrderStatusTransitionActor.PAYMENT_MANUAL_VERIFICATION if source == "manual_verification"
                 else OrderStatusTransitionActor.PAYMENT_FALLBACK_VERIFICATION
             ))
         else:
