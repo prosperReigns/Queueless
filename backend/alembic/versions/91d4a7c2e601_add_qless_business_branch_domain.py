@@ -190,11 +190,11 @@ def upgrade() -> None:
     op.create_index("ix_business_memberships_branch_id", "business_memberships", ["branch_id"])
     op.create_index(
         "uq_membership_business_user_global", "business_memberships", ["user_id", "business_id"],
-        unique=True, postgresql_where=sa.text("branch_id IS NULL")
+        unique=True, postgresql_where=sa.text("branch_id IS NULL AND is_active IS TRUE")
     )
     op.create_index(
         "uq_membership_business_user_branch", "business_memberships", ["user_id", "business_id", "branch_id"],
-        unique=True, postgresql_where=sa.text("branch_id IS NOT NULL")
+        unique=True, postgresql_where=sa.text("branch_id IS NOT NULL AND is_active IS TRUE")
     )
 
     op.create_table(
