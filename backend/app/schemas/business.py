@@ -80,6 +80,9 @@ class MembershipCreate(BaseModel):
     role: BusinessRole
     branch_id: Optional[uuid.UUID] = None
 
+class MembershipUpdate(BaseModel):
+    is_active: bool
+
 class MembershipResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
