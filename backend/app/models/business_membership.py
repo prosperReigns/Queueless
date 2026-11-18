@@ -21,8 +21,8 @@ class BusinessMembership(Base):
     __tablename__ = "business_memberships"
     __table_args__ = (
         CheckConstraint("(role IN ('owner', 'franchise_admin') AND branch_id IS NULL) OR (role IN ('branch_manager', 'cashier', 'kitchen_staff', 'collection_staff') AND branch_id IS NOT NULL)", name="ck_membership_role_scope"),
-        Index("uq_membership_business_user_global", "user_id", "business_id", unique=True, postgresql_where=text("branch_id IS NULL"), sqlite_where=text("branch_id IS NULL")),
-        Index("uq_membership_business_user_branch", "user_id", "business_id", "branch_id", unique=True, postgresql_where=text("branch_id IS NOT NULL"), sqlite_where=text("branch_id IS NOT NULL")),
+        Index("uq_membership_business_user_global", "user_id", "business_id", unique=True, postgresql_where=text("branch_id IS NULL AND is_active IS TRUE"), sqlite_where=text("branch_id IS NULL AND is_active = 1")),
+        Index("uq_membership_business_user_branch", "user_id", "business_id", "branch_id", unique=True, postgresql_where=text("branch_id IS NOT NULL AND is_active IS TRUE"), sqlite_where=text("branch_id IS NOT NULL AND is_active = 1")),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
