@@ -17,7 +17,7 @@ from app.models.user import User, UserRole
 from app.schemas.business import (
     BusinessCreate, BusinessResponse, BusinessUpdate, BusinessWithRoleResponse,
     BranchCreate, BranchResponse, BranchUpdate, MembershipCreate, MembershipResponse,
-    BranchQRResponse, PublicBranchResolveResponse,
+    BranchQRResponse, PublicBranchResolveResponse, MembershipUpdate,
 )
 from app.services.business_service import (
     can_access_branch, can_access_business, create_branch, create_business,
@@ -201,6 +201,37 @@ def list_memberships_endpoint(
         select(BusinessMembership).where(BusinessMembership.business_id == business_id).order_by(BusinessMembership.created_at.asc())
     ).all()
     return [MembershipResponse.model_validate(item) for item in memberships]
+
+
+@router.patch("/businesses/{business_id}/memberships/{membership_id}", response_model=MembershipResponse)
+def update_membership_endpoint(
+    business_id: uuid.UUID,
+    membership_id: uuid.UUID,
+    payload: MembershipUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> MembershipResponse:
+    """Activate or suspend a staff membership without deleting its audit history."""
+    _, actor_role = _require_business_admin(db, current_user, business_id)
+    if current_user.role == UserRole.ADMIN:
+        actor_role = BusinessRole.OWNER
+    membership = db.scalar(
+        select(BusinessMembership).where(
+            BusinessMembership.id == membership_id,
+            BusinessMembership.business_id == business_id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership not found.")
+    if membership.role == BusinessRole.OWNER:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The owner membership cannot be changed here.")
+    if actor_role == BusinessRole.FRANCHISE_ADMIN and membership.role == BusinessRole.FRANCHISE_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the owner can manage franchise administrators.")
+    membership.is_active = payload.is_active
+    db.add(membership)
+    db.commit()
+    db.refresh(membership)
+    return MembershipResponse.model_validate(membership)
 
 
 @router.get("/branches/{branch_id}/qr", response_model=BranchQRResponse)
