@@ -266,6 +266,18 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
             event_row.processed_at = datetime.now(timezone.utc)
             db.commit()
             return True, "refund_not_found"
+        if payload.get("amount") is not None:
+            try:
+                event_amount = int(payload["amount"])
+            except (TypeError, ValueError):
+                event_amount = -1
+            expected_refund_amount = int((Decimal(refund.amount) * 100).quantize(Decimal("1")))
+            if event_amount != expected_refund_amount or str(payload.get("currency", refund.currency)).upper() != refund.currency:
+                event_row.processing_status = "ignored"
+                event_row.error_message = "Refund event amount or currency mismatch."
+                event_row.processed_at = datetime.now(timezone.utc)
+                db.commit()
+                return True, "refund_verification_mismatch"
         if event_type == "refund.processed" and refund.status != "processed":
             refund.status = "processed"
             refund.processed_at = datetime.now(timezone.utc)
