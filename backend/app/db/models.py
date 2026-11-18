@@ -11,5 +11,6 @@ from app.models.branch import Branch
 from app.models.business_membership import BusinessMembership
 from app.models.branch_qr_code import BranchQRCode
 from app.models.menu import MenuCategory, MenuItem, BranchMenuItem
+from app.models.kitchen import KitchenTicket, KitchenEvent
 
-__all__ = ["User", "Store", "Product", "Order", "OrderItem", "Payment", "PaymentEvent", "PaymentStatusHistory", "PaymentRefund", "NotificationToken", "Business", "Branch", "BusinessMembership", "BranchQRCode", "MenuCategory", "MenuItem", "BranchMenuItem"]
+__all__ = ["User", "Store", "Product", "Order", "OrderItem", "Payment", "PaymentEvent", "PaymentStatusHistory", "PaymentRefund", "NotificationToken", "Business", "Branch", "BusinessMembership", "BranchQRCode", "MenuCategory", "MenuItem", "BranchMenuItem", "KitchenTicket", "KitchenEvent"]

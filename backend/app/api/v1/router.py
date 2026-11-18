@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     admin, auth, branch_orders, businesses, menu, notifications, orders, payments,
-    products, qr_codes, stores, websocket,
+    products, qr_codes, stores, websocket, kitchen,
 )
 api_router = APIRouter()
 api_router.include_router(auth.router)
@@ -17,3 +17,4 @@ api_router.include_router(branch_orders.router)
 api_router.include_router(qr_codes.router)
 api_router.include_router(payments.router)
 api_router.include_router(websocket.router)
+api_router.include_router(kitchen.router)

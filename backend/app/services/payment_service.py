@@ -136,7 +136,28 @@ def _apply_verified_transaction(db: Session, payment: Payment, data: Dict[str, A
         elif locked_payment.paid_at is None:
             locked_payment.paid_at = datetime.now(timezone.utc)
         locked_payment.failure_reason = None
-        if order is not None and order.status == OrderStatus.PENDING:
+        if order is not None and order.branch_id is not None:
+            # Branch orders enter the kitchen only after provider verification. Keep
+            # the payment/order update, ticket and first durable event atomic.
+            changed_to_paid = order.status == OrderStatus.PENDING
+            if changed_to_paid:
+                update_order_status(
+                    db, order, OrderStatus.PAID,
+                    actor=(
+                        OrderStatusTransitionActor.PAYMENT_WEBHOOK if source == "webhook"
+                        else OrderStatusTransitionActor.PAYMENT_MANUAL_VERIFICATION if source == "manual_verification"
+                        else OrderStatusTransitionActor.PAYMENT_FALLBACK_VERIFICATION
+                    ),
+                    commit=False,
+                    emit_side_effects=False,
+                )
+            from app.services.kitchen_service import ensure_kitchen_ticket
+            ensure_kitchen_ticket(db, order, commit=False)
+            db.commit()
+            if changed_to_paid:
+                from app.services.order_service import emit_order_status_side_effects
+                emit_order_status_side_effects(order)
+        elif order is not None and order.status == OrderStatus.PENDING:
             update_order_status(db, order, OrderStatus.PAID, actor=(
                 OrderStatusTransitionActor.PAYMENT_WEBHOOK if source == "webhook"
                 else OrderStatusTransitionActor.PAYMENT_MANUAL_VERIFICATION if source == "manual_verification"
