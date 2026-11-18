@@ -97,7 +97,10 @@ export function OrderDetailsPage() {
 
       <div className="checkout-summary__actions">
         <Link to={`/orders/${parsedOrderId}/confirmation`} className="button-link">
-          View pickup QR
+          View order confirmation
+        </Link>
+        <Link to={`/track/${parsedOrderId}`} className="button-link">
+          Track collection status
         </Link>
         <Link to="/orders" className="button-link">
           Back to my orders

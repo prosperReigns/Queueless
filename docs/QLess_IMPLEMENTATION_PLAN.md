@@ -181,3 +181,36 @@ Implemented on `feature/qless-phase-5`:
 - The permanent branch QR remains only a menu/branch identifier; it is not accepted as a collection credential.
 
 **Verification still required:** run compile checks and the full backend suite; apply all migrations through `e6f2a9c4d810` against fresh and disposable-existing PostgreSQL databases. Test simultaneous redemption, credential rotation, expiry, wrong-branch attempts and both handoff methods before production.
+
+
+## Phase 6 implementation status
+
+Implemented on `feature/qless-phase-6` (draft PR pending):
+
+- Added a dedicated kitchen display workspace that selects from the signed-in user's businesses and authorized branches, polls the branch queue, displays ticket line items and advances tickets through the existing server-enforced state machine.
+- Added a collection desk for staff to select an authorized branch and redeem a single-use QR/PIN credential. The UI submits handoff details for customer-arranged external riders and relies on the backend to enforce readiness, payment, expiry, branch binding and single use.
+- Added customer/guest order tracking using the Phase 5 tracking endpoint, with guest access-token support and explicit one-time credential issuance after kitchen readiness.
+- Added an initial branch operations report using the branch order endpoint, including order count, gross order value, active orders, paid/beyond-payment count, cancellations and recent orders.
+- Added shared typed API functions for business/branch discovery, kitchen queue transitions, branch orders, collection redemption, tracking and credential issuance.
+- Added responsive workspace routes, navigation and styling. All authenticated staff roles can reach the workspaces; the backend remains authoritative for membership and branch permissions.
+
+**Reporting limitation:** the current report is an operational summary derived from the branch order list. It is not a financial statement and does not calculate net revenue, refunds, payment fees, taxes, preparation-time percentiles or collection-time metrics. Those require a dedicated aggregated analytics endpoint and explicit event timestamps. Customer-facing Phase 2 discovery/branch-menu/checkout screens remain separate from the legacy store checkout and are not represented as completed by this phase.
+
+**Verification still required:** no frontend install, TypeScript check, lint, build, browser test or backend integration test has been executed in this environment. Run the frontend package scripts and exercise customer guest tracking, kitchen transitions, branch permission denial, cross-branch credential rejection and duplicate collection redemption before merging. Confirm the full Alembic chain through `e6f2a9c4d810` on fresh and disposable-existing PostgreSQL databases.
+
+
+## Phase 6 implementation status
+
+Implemented on `feature/qless-phase-6` (draft PR #53, based on Phase 5):
+
+- **Customer:** added business-slug branch discovery, branch menu browsing, remote preorder and permanent branch-QR ordering at `/q/{token}`. Checkout creates orders through the unified Phase 2 endpoint and starts Paystack checkout. Guest checkout tokens are kept in session storage for the payment callback and tracking page.
+- **Customer tracking/history:** added `/track/{order_id}`, guest-token access, Paystack callback verification, kitchen/fulfillment progress, one-time collection QR/PIN issuance after the ticket reaches READY, and a separate authenticated branch-order history endpoint/page. Legacy order details now link to tracking.
+- **Merchant:** added business creation (independent/franchise), branch creation, staff membership assignment/suspension, menu category/item creation, branch item availability controls and permanent branch QR menu URL display.
+- **Kitchen:** added a branch-selectable kitchen display with polling and explicit server-enforced ticket transitions.
+- **Fulfillment:** added a branch-selectable collection desk for QR/PIN redemption and external-rider handoff details.
+- **Reports:** added branch order volume, gross order value, active/cancelled counts and recent order list.
+- Added typed frontend API clients, responsive workspace navigation/styles and a GitHub Actions frontend lint/build workflow.
+
+**Known limitations:** discovery currently starts from a business slug rather than a searchable global restaurant directory. Reporting is an operational snapshot derived from branch orders, not a financial ledger; it excludes refunds, fees, taxes, net settlement and duration percentiles. Customer ordering UI uses the Phase 2 unified order/payment APIs and does not change backend models. The current report pagination is bounded by the existing branch order endpoint's maximum page size.
+
+**Verification still required:** no local frontend install/build/lint, browser test, backend test, or PostgreSQL migration was run during this implementation. Confirm the frontend GitHub Actions workflow passes, then exercise remote and QR checkout, Paystack callback verification, role/branch authorization, kitchen transitions, guest tracking and duplicate/wrong-branch collection redemption. Run backend tests and apply the complete Alembic chain through `e6f2a9c4d810` on fresh and disposable-existing PostgreSQL databases.

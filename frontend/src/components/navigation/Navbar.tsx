@@ -13,11 +13,15 @@ export function Navbar() {
           Queue-less
         </Link>
         <div className="app-navbar__actions">
+          <Link to="/discover" className="button-link">Find restaurants</Link>
           {user ? (
             <>
               {user.role === 'CUSTOMER' ? (
                 <Link to="/cart" className="button-link">
                   Cart ({itemCount})
+                </Link>
+                <Link to="/dashboard/customer/branch-orders" className="button-link">
+                  Qless orders
                 </Link>
               ) : null}
               <button type="button" onClick={logout}>
