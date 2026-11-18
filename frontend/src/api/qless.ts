@@ -194,3 +194,8 @@ export async function verifyBranchPaymentRequest(reference: string, guestToken?:
   const { data } = await apiClient.post('/payments/verify', { reference, guest_access_token: guestToken })
   return data
 }
+
+export async function getBranchQrRequest(branchId: string) {
+  const { data } = await apiClient.get<{branch_id:string;token:string;menu_url:string}>(`/branches/${branchId}/qr`)
+  return data
+}
