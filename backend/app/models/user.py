@@ -1,59 +1,30 @@
 """User ORM model."""
-
 from __future__ import annotations
-
 from datetime import datetime
 from enum import Enum
 from typing import List
 import uuid
-
 from sqlalchemy import Boolean, DateTime, Enum as SQLEnum, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.db.base import Base
 
-
 class UserRole(str, Enum):
-    """Application user role."""
-
+    """Legacy platform-wide role retained for backwards compatibility."""
     CUSTOMER = "customer"
     MERCHANT = "merchant"
     ADMIN = "admin"
 
-
 class User(Base):
     """User account model."""
-
     __tablename__ = "users"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[UserRole] = mapped_column(
-        SQLEnum(UserRole, name="user_role"),
-        nullable=False,
-        default=UserRole.CUSTOMER,
-    )
+    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole, name="user_role"), nullable=False, default=UserRole.CUSTOMER)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-    )
-
-    stores: Mapped[List["Store"]] = relationship(
-        "Store",
-        back_populates="owner",
-        cascade="all, delete-orphan",
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    stores: Mapped[List["Store"]] = relationship("Store", back_populates="owner", cascade="all, delete-orphan")
     orders: Mapped[List["Order"]] = relationship("Order", back_populates="user")
-    notification_tokens: Mapped[List["NotificationToken"]] = relationship(
-        "NotificationToken",
-        back_populates="user",
-        cascade="all, delete-orphan",
-    )
+    notification_tokens: Mapped[List["NotificationToken"]] = relationship("NotificationToken", back_populates="user", cascade="all, delete-orphan")
+    business_memberships: Mapped[List["BusinessMembership"]] = relationship("BusinessMembership", back_populates="user", cascade="all, delete-orphan")
