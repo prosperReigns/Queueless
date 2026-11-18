@@ -9,6 +9,7 @@ import { BusinessManagementPage } from '../features/business/pages/BusinessManag
 import { FulfillmentDashboardPage } from '../features/fulfillment/pages/FulfillmentDashboardPage'
 import { BranchReportsPage } from '../features/reports/pages/BranchReportsPage'
 import { BranchOrderTrackingPage } from '../features/orders/pages/BranchOrderTrackingPage'
+import { BranchOrderingPage } from '../features/orders/pages/BranchOrderingPage'
 import { CartPage } from '../features/orders/pages/CartPage'
 import { CheckoutPage } from '../features/orders/pages/CheckoutPage'
 import { OrderDetailsPage } from '../features/orders/pages/OrderDetailsPage'
@@ -32,6 +33,8 @@ export function AppRouter() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="track/:orderId" element={<BranchOrderTrackingPage />} />
+        <Route path="discover" element={<BranchOrderingPage />} />
+        <Route path="q/:token" element={<BranchOrderingPage />} />
         <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
           <Route index element={<StoresPage />} />
           <Route path="stores/:storeId" element={<StoreDetailsPage />} />
