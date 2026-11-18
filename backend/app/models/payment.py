@@ -2,6 +2,7 @@
 from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from sqlalchemy import CheckConstraint, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
