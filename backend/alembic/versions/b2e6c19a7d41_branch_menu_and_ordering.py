@@ -73,6 +73,7 @@ def upgrade() -> None:
     op.add_column("orders", sa.Column("customer_email", sa.String(255), nullable=True))
     op.add_column("orders", sa.Column("customer_phone", sa.String(40), nullable=True))
     op.add_column("orders", sa.Column("guest_access_token_hash", sa.String(64), nullable=True))
+    op.add_column("orders", sa.Column("guest_access_token_expires_at", sa.DateTime(timezone=True), nullable=True))
     op.create_index("ix_orders_branch_id", "orders", ["branch_id"])
     op.create_index("uq_orders_guest_access_token_hash", "orders", ["guest_access_token_hash"], unique=True)
 
@@ -89,7 +90,7 @@ def downgrade() -> None:
     op.alter_column("order_items", "product_id", existing_type=sa.Integer(), nullable=False)
     op.drop_index("uq_orders_guest_access_token_hash", table_name="orders")
     op.drop_index("ix_orders_branch_id", table_name="orders")
-    for column in ("guest_access_token_hash", "customer_phone", "customer_email", "customer_name", "scheduled_for", "fulfillment_method", "order_source", "branch_id"):
+    for column in ("guest_access_token_expires_at", "guest_access_token_hash", "customer_phone", "customer_email", "customer_name", "scheduled_for", "fulfillment_method", "order_source", "branch_id"):
         op.drop_column("orders", column)
     op.alter_column("orders", "store_id", existing_type=sa.Integer(), nullable=False)
     op.alter_column("orders", "user_id", existing_type=postgresql.UUID(as_uuid=True), nullable=False)
