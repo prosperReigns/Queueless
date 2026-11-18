@@ -5,10 +5,10 @@ import { getKitchenQueueRequest, listBranchesRequest, listBusinessesRequest, upd
 import type { KitchenTicket } from '../../../api/qless'
 
 const NEXT: Record<KitchenTicket['status'], KitchenTicket['status'] | null> = {
-  NEW: 'ACCEPTED', ACCEPTED: 'PREPARING', PREPARING: 'READY', READY: null,
+  new: 'accepted', accepted: 'preparing', preparing: 'ready', ready: null,
 }
 const LABEL: Record<KitchenTicket['status'], string> = {
-  NEW: 'New', ACCEPTED: 'Accepted', PREPARING: 'Preparing', READY: 'Ready',
+  new: 'New', accepted: 'Accepted', preparing: 'Preparing', ready: 'Ready',
 }
 export function KitchenDashboardPage() {
   const [businessId, setBusinessId] = useState('')
