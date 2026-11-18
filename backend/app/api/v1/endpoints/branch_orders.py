@@ -58,6 +58,8 @@ def list_branch_orders(
     branch = db.get(Branch, branch_id)
     if branch is None:
         raise HTTPException(status_code=404, detail="Branch not found.")
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
     if not can_access_branch(db, user, branch):
         raise HTTPException(status_code=403, detail="Branch access denied.")
     stmt = select(Order).options(selectinload(Order.items)).where(Order.branch_id == branch_id)
