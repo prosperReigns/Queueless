@@ -110,7 +110,7 @@ def create_refund(
     try:
         refund = initiate_paystack_refund(
             db, payment_reference=payload.payment_reference,
-            amount=payload.amount, reason=payload.reason,
+            idempotency_key=payload.idempotency_key, amount=payload.amount, reason=payload.reason,
             initiated_by=str(current_user.id),
         )
     except ValueError as exc:
