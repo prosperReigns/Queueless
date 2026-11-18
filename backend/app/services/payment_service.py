@@ -367,7 +367,7 @@ def initiate_paystack_refund(db: Session, *, payment_reference: str, amount: Opt
         response = _provider_request("POST", "refund", payload=payload)
     except ValueError as exc:
         refund.status = "pending_unknown"
-        refund.reason = f"{(reason or 'Refund')[:350]} | Provider outcome unknown: {str(exc)[:120]}"
+        refund.last_error = str(exc)[:500]
         db.commit()
         raise ValueError("Refund request outcome is uncertain. Reconcile it with Paystack before retrying.") from exc
     data = response["data"]
@@ -405,6 +405,7 @@ def reconcile_paystack_refund(db: Session, refund_reference: str) -> PaymentRefu
             payment.amount_refunded = (Decimal(payment.amount_refunded or 0) + Decimal(refund.amount)).quantize(Decimal("0.01"))
         refund.processed_at = datetime.now(timezone.utc)
     refund.status = normalized
+    refund.last_error = None
     if match.get("id") is not None:
         refund.provider_refund_id = str(match["id"])
     db.commit()
