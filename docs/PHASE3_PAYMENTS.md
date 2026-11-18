@@ -35,7 +35,7 @@ The backend calls Paystack's transaction verify endpoint. It compares the provid
 
 Paystack's `x-paystack-signature` is checked using HMAC-SHA512 over the raw request body. For `charge.success`, Qless independently verifies the transaction with Paystack before applying payment state. The webhook event is recorded using a canonical payload SHA-256 fingerprint and a unique provider/event key. Duplicate deliveries are acknowledged without repeating state transitions. A transient verification outage returns HTTP 503 so Paystack can retry; a verified mismatch is recorded and not fulfilled.
 
-Refund completion/failure events update the matching refund record. Refund completion increases the recorded refunded amount once.
+Refund pending, processing, needs-attention, failed and processed events update the matching refund record. Qless matches Paystack's refund reference/provider ID where present, and falls back to transaction reference plus amount only when exactly one pending local refund matches. Refund completion increases the recorded refunded amount once.
 
 ### Refund
 
