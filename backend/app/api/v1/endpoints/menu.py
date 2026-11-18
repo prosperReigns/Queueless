@@ -31,17 +31,35 @@ def _manager_access(db: Session, user: User, branch: Branch) -> None:
     if not allowed:
         raise HTTPException(status_code=403, detail="Menu management permission required.")
 
+def _public_menu_payload(db: Session, branch: Branch):
+    return {
+        "business": {"id": str(branch.business.id), "name": branch.business.name, "slug": branch.business.slug},
+        "branch": {"id": str(branch.id), "name": branch.name, "timezone": branch.timezone, "address_line": branch.address_line, "city": branch.city, "state": branch.state, "country": branch.country},
+        "categories": get_public_branch_menu(db, branch),
+    }
+
+@router.get("/public/businesses/{business_slug}/branches")
+def public_business_branches(business_slug: str, db: Session = Depends(get_db)):
+    business = db.scalar(select(Business).where(Business.slug == business_slug, Business.is_active.is_(True)))
+    if business is None:
+        raise HTTPException(status_code=404, detail="Business not found.")
+    branches = db.scalars(select(Branch).where(Branch.business_id == business.id, Branch.is_active.is_(True)).order_by(Branch.name)).all()
+    return [{"id": branch.id, "name": branch.name, "address_line": branch.address_line, "city": branch.city, "state": branch.state, "country": branch.country, "timezone": branch.timezone} for branch in branches]
+
+@router.get("/public/branches/{branch_id}/menu")
+def public_branch_menu_by_id(branch_id: uuid.UUID, db: Session = Depends(get_db)):
+    branch = db.get(Branch, branch_id)
+    if branch is None or not branch.is_active or not branch.business.is_active:
+        raise HTTPException(status_code=404, detail="Branch menu not found.")
+    return _public_menu_payload(db, branch)
+
 @router.get("/public/branches/resolve/{token}/menu")
 def public_branch_menu(token: uuid.UUID, db: Session = Depends(get_db)):
     qr = db.scalar(select(BranchQRCode).where(BranchQRCode.token == token, BranchQRCode.is_active.is_(True)))
     branch = db.get(Branch, qr.branch_id) if qr else None
     if branch is None or not branch.is_active or not branch.business.is_active:
         raise HTTPException(status_code=404, detail="Branch menu not found.")
-    return {
-        "business": {"id": str(branch.business.id), "name": branch.business.name},
-        "branch": {"id": str(branch.id), "name": branch.name, "timezone": branch.timezone},
-        "categories": get_public_branch_menu(db, branch),
-    }
+    return _public_menu_payload(db, branch)
 
 @router.post("/businesses/{business_id}/menu/categories", status_code=status.HTTP_201_CREATED)
 def add_menu_category(business_id: uuid.UUID, payload: MenuCategoryCreate, db: Session = Depends(get_db), user: User = Depends(get_current_active_user)):
