@@ -410,10 +410,15 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
         return True, "duplicate_event"
 
 
-def initiate_paystack_refund(db: Session, *, payment_reference: str, amount: Optional[Decimal], reason: Optional[str], initiated_by: Optional[str]) -> PaymentRefund:
+def initiate_paystack_refund(db: Session, *, payment_reference: str, idempotency_key: str, amount: Optional[Decimal], reason: Optional[str], initiated_by: Optional[str]) -> PaymentRefund:
     payment = db.scalar(select(Payment).where(Payment.reference == payment_reference).with_for_update())
     if payment is None:
         raise ValueError("Payment not found.")
+    existing_refund = db.scalar(select(PaymentRefund).where(PaymentRefund.idempotency_key == idempotency_key).with_for_update())
+    if existing_refund is not None:
+        if existing_refund.payment_id != payment.id or (amount is not None and Decimal(existing_refund.amount) != amount.quantize(Decimal("0.01"))):
+            raise ValueError("This refund idempotency key was already used for a different request.")
+        return existing_refund
     if payment.status != PaymentStatus.SUCCESS:
         raise ValueError("Only successful payments can be refunded.")
     reserved = sum((r.amount for r in db.scalars(select(PaymentRefund).where(PaymentRefund.payment_id == payment.id, PaymentRefund.status != "failed")).all()), Decimal("0.00"))
@@ -422,7 +427,7 @@ def initiate_paystack_refund(db: Session, *, payment_reference: str, amount: Opt
     if refund_amount <= 0 or refund_amount > remaining:
         raise ValueError("Refund amount exceeds the remaining refundable balance.")
     refund_reference = f"qls_{secrets.token_hex(12)}"
-    refund = PaymentRefund(payment_id=payment.id, reference=refund_reference, amount=refund_amount, currency=payment.currency, status="pending", reason=reason, initiated_by=initiated_by)
+    refund = PaymentRefund(payment_id=payment.id, reference=refund_reference, idempotency_key=idempotency_key, amount=refund_amount, currency=payment.currency, status="pending", reason=reason, initiated_by=initiated_by)
     db.add(refund)
     db.commit()
     payload = {
