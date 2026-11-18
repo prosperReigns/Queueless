@@ -40,6 +40,7 @@ class Order(Base):
     customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     customer_phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     guest_access_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    guest_access_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[OrderStatus] = mapped_column(SQLEnum(OrderStatus, name="order_status"), nullable=False, default=OrderStatus.PENDING)
     payment_reference: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
