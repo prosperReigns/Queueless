@@ -134,3 +134,20 @@ Implemented on `feature/qless-phase-2` (draft PR #49):
 - Added Alembic revision `b2e6c19a7d41`; legacy store/product endpoints remain in place and legacy records are not automatically backfilled.
 
 **Verification still required:** run backend tests, import/compile checks, and both fresh-database and disposable-existing-database migration tests. No CI/test or live PostgreSQL migration success is claimed. Before deployment, also verify Paystack guest payment initialization/webhook flow end-to-end. Phase 3 still owns payment event idempotency/reconciliation and strict provider verification; Phase 4 owns kitchen workflow/realtime; Phase 5 owns the temporary single-use collection credential.
+
+
+## Phase 3 implementation status
+
+Implemented on `feature/qless-phase-3` (draft PR planned):
+
+- Kept payment state separate from order fulfillment state. A payment can only mark an order paid after a server-side Paystack verification confirms reference, amount and currency.
+- Added an authenticated customer/guest `POST /payments/verify` endpoint. Guest token validation is shared with initialization and handles timezone-aware expiry safely.
+- Reworked webhook handling: HMAC-SHA512 signature validation remains over the raw body; charge-success payloads are independently verified against Paystack; canonical JSON SHA-256 event fingerprints and a unique provider/event key prevent duplicate processing.
+- The Celery fallback now calls the same provider verification/reconciliation service instead of trusting status alone.
+- Repeated payment initialization reuses persisted checkout authorization data when available.
+- Added payment status history, webhook event records and refund ledger models.
+- Added partial/full Paystack refund initiation with remaining-balance reservation, unique refund references, refund webhook updates and explicit reconciliation for uncertain outcomes.
+- Added configurable `PAYMENT_CURRENCY` (default `NGN`), migration `c7a4d91e2f60`, payment API docs and verification invariant tests.
+- Updated the legacy order/payment end-to-end test to assert provider-verified success and duplicate webhook handling.
+
+**Verification still required:** no local test suite or PostgreSQL migration has been executed in this environment. Test the complete suite and migration on fresh and disposable-existing PostgreSQL databases. Paystack test-mode refund/webhook behavior must also be exercised before production.
