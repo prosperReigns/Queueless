@@ -30,8 +30,15 @@ class OrderResponse(BaseModel):
     """Response payload for an order."""
 
     id: int = Field(gt=0)
-    user_id: uuid.UUID
-    store_id: int = Field(gt=0)
+    user_id: Optional[uuid.UUID] = None
+    store_id: Optional[int] = Field(default=None, gt=0)
+    branch_id: Optional[uuid.UUID] = None
+    order_source: Optional[str] = None
+    fulfillment_method: Optional[str] = None
+    scheduled_for: Optional[datetime] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
     total_amount: Decimal = Field(ge=Decimal("0"), max_digits=10, decimal_places=2)
     status: OrderStatus
     payment_reference: str = Field(min_length=1, max_length=255)
