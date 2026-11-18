@@ -16,6 +16,7 @@ class PaymentVerifyRequest(BaseModel):
     guest_access_token: Optional[str] = Field(default=None, min_length=32, max_length=128)
 
 class PaymentRefundRequest(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
     payment_reference: str = Field(min_length=1, max_length=255)
     amount: Optional[Decimal] = Field(default=None, gt=Decimal("0"), max_digits=10, decimal_places=2)
     reason: Optional[str] = Field(default=None, max_length=500)
@@ -46,6 +47,7 @@ class PaymentRefundResponse(BaseModel):
     id: int
     payment_id: int
     reference: str
+    idempotency_key: str
     provider_refund_id: Optional[str] = None
     amount: Decimal
     currency: str
