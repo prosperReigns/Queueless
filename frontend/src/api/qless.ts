@@ -97,3 +97,59 @@ export async function issueCollectionCredentialRequest(orderId: number, guestTok
   })
   return data
 }
+
+export interface MembershipOption {
+  id: string
+  user_id: string
+  branch_id: string | null
+  role: string
+  is_active: boolean
+}
+export interface MenuItemOption {
+  id: string
+  name: string
+  description?: string | null
+  price: string
+  is_available: boolean
+}
+export interface MenuCategoryOption {
+  id: string
+  name: string
+  items: MenuItemOption[]
+}
+export async function createBusinessRequest(payload: { name: string; business_type: 'independent' | 'franchise' }) {
+  const { data } = await apiClient.post<BusinessOption>('/businesses', payload)
+  return data
+}
+export async function createBranchRequest(businessId: string, payload: { name: string; city?: string; state?: string; country: string }) {
+  const { data } = await apiClient.post<BranchOption>(`/businesses/${businessId}/branches`, payload)
+  return data
+}
+export async function listMembershipsRequest(businessId: string) {
+  const { data } = await apiClient.get<MembershipOption[]>(`/businesses/${businessId}/memberships`)
+  return data
+}
+export async function createMembershipRequest(businessId: string, payload: { user_id: string; role: string; branch_id: string }) {
+  const { data } = await apiClient.post<MembershipOption>(`/businesses/${businessId}/memberships`, payload)
+  return data
+}
+export async function updateMembershipRequest(businessId: string, membershipId: string, isActive: boolean) {
+  const { data } = await apiClient.patch<MembershipOption>(`/businesses/${businessId}/memberships/${membershipId}`, { is_active: isActive })
+  return data
+}
+export async function createMenuCategoryRequest(businessId: string, payload: { name: string; description?: string }) {
+  const { data } = await apiClient.post(`/businesses/${businessId}/menu/categories`, payload)
+  return data
+}
+export async function createMenuItemRequest(businessId: string, payload: { name: string; category_id: string; base_price: number; description?: string }) {
+  const { data } = await apiClient.post(`/businesses/${businessId}/menu/items`, payload)
+  return data
+}
+export async function getPublicBranchMenuRequest(branchId: string) {
+  const { data } = await apiClient.get<{ categories: MenuCategoryOption[] }>(`/public/branches/${branchId}/menu`)
+  return data.categories
+}
+export async function updateBranchMenuItemRequest(branchId: string, itemId: string, payload: { is_available: boolean }) {
+  const { data } = await apiClient.patch(`/branches/${branchId}/menu/items/${itemId}`, payload)
+  return data
+}
