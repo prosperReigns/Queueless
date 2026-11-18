@@ -227,12 +227,12 @@ def verify_paystack_webhook_signature(raw_body: bytes, signature: Optional[str])
     return hmac.compare_digest(expected, signature)
 
 
-def verify_payment_and_reconcile(db: Session, reference: str) -> Tuple[Payment, str]:
+def verify_payment_and_reconcile(db: Session, reference: str, *, source: str = "manual_verification") -> Tuple[Payment, str]:
     payment = get_payment_by_reference(db, reference)
     if payment is None:
         raise ValueError("Payment not found.")
     data = _verify_transaction_with_paystack(reference)
-    result = _apply_verified_transaction(db, payment, data, "manual_verification")
+    result = _apply_verified_transaction(db, payment, data, source)
     db.refresh(payment)
     return payment, result
 
