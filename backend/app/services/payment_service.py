@@ -333,7 +333,6 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
 
         incoming_status = refund_event_statuses[event_type]
         if refund.status != "processed" and refund.status != "failed":
-            previous_status = refund.status
             refund.status = incoming_status
             if provider_refund_id is not None:
                 refund.provider_refund_id = str(provider_refund_id)
