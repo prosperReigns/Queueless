@@ -152,3 +152,17 @@ Implemented on `feature/qless-phase-3` (draft PR #50):
 - Added a GitHub Actions workflow for backend compile checks and tests.
 
 **Verification still required:** no local test suite or PostgreSQL migration has been executed in this environment. Test the complete suite and migration on fresh and disposable-existing PostgreSQL databases. Paystack test-mode refund/webhook behavior must also be exercised before production.
+
+## Phase 4 implementation status
+
+Implemented on `feature/qless-phase-4`:
+
+- Added branch-scoped kitchen tickets with the strict `NEW → ACCEPTED → PREPARING → READY` lifecycle.
+- Creates exactly one kitchen ticket only after the Phase 3 Paystack verification succeeds for a branch order. The ticket and its first durable event are committed in the same transaction as the payment/order update.
+- Added kitchen queue and ticket-transition endpoints with server-side branch membership checks. Kitchen access is limited to owner, franchise-admin, branch-manager and kitchen-staff memberships (plus platform admins).
+- Added a durable, monotonically identified kitchen event log and an HTTP replay/polling endpoint.
+- Added a branch-specific WebSocket stream that replays persisted events from a supplied event cursor and rechecks membership while connected.
+- Kept payment state, kitchen state and the future collection/fulfillment state separate. Legacy store orders remain on their existing workflow.
+- Added Alembic revision `d4b8e1a6c903`, service state-machine tests and Phase 4 API/reliability documentation.
+
+**Verification still required:** no local test suite or PostgreSQL migration has been executed in this environment. Run compile checks and all tests, then apply the migration to fresh and disposable-existing PostgreSQL databases. Exercise WebSocket reconnect/replay and branch access isolation before production.
