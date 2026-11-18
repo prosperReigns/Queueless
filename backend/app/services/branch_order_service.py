@@ -11,12 +11,19 @@ from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
 
 def create_branch_order(db: Session, payload, user_id=None):
-    qr = db.scalar(select(BranchQRCode).where(BranchQRCode.token == payload.branch_qr_token, BranchQRCode.is_active.is_(True)))
-    branch = db.get(Branch, qr.branch_id) if qr else None
+    if payload.source == "onsite_qr":
+        if payload.branch_qr_token is None:
+            raise ValueError("Onsite QR orders require a branch QR code.")
+        qr = db.scalar(select(BranchQRCode).where(BranchQRCode.token == payload.branch_qr_token, BranchQRCode.is_active.is_(True)))
+        branch = db.get(Branch, qr.branch_id) if qr else None
+        if branch is None:
+            raise ValueError("Branch QR code is invalid.")
+    else:
+        if payload.branch_id is None:
+            raise ValueError("Remote preorders require a selected branch.")
+        branch = db.get(Branch, payload.branch_id)
     if branch is None or not branch.is_active or not branch.business.is_active:
-        raise ValueError("Branch QR code is invalid or the branch is inactive.")
-    if payload.source == "onsite_qr" and payload.branch_qr_token is None:
-        raise ValueError("Onsite orders require a branch QR code.")
+        raise ValueError("Branch not found or inactive.")
     ids = [line.menu_item_id for line in payload.items]
     items = list(db.scalars(select(MenuItem).where(MenuItem.id.in_(ids), MenuItem.business_id == branch.business_id, MenuItem.is_active.is_(True))).all())
     by_id = {item.id: item for item in items}
