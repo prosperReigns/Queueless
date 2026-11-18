@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -178,9 +179,35 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 @app.get("/health")
+@app.get("/health/live")
 async def health_check() -> dict:
-    """Simple health check endpoint."""
+    """Process liveness probe; does not depend on external services."""
     return success_response(data={"status": "ok"}, message="healthy")
+
+
+@app.get("/health/ready")
+async def readiness_check() -> JSONResponse:
+    """Readiness probe that verifies the database without exposing connection details."""
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        logger.exception("Database readiness check failed.")
+        return JSONResponse(
+            status_code=503,
+            content=error_response(
+                error="A required service is unavailable.",
+                code="DEPENDENCY_UNAVAILABLE",
+                details={"database": "unavailable"},
+            ),
+        )
+    return JSONResponse(
+        status_code=200,
+        content=success_response(
+            data={"status": "ready", "dependencies": {"database": "ok"}},
+            message="ready",
+        ),
+    )
 
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

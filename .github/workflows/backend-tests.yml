@@ -5,6 +5,7 @@ on:
     branches:
       - feature/qless-phase-3
       - feature/qless-phase-6
+      - feature/qless-phase-7
   pull_request:
     paths:
       - "backend/**"

@@ -214,3 +214,15 @@ Implemented on `feature/qless-phase-6` (draft PR #53, based on Phase 5):
 **Known limitations:** discovery currently starts from a business slug rather than a searchable global restaurant directory. Reporting is an operational snapshot derived from branch orders, not a financial ledger; it excludes refunds, fees, taxes, net settlement and duration percentiles. Customer ordering UI uses the Phase 2 unified order/payment APIs and does not change backend models. The current report pagination is bounded by the existing branch order endpoint's maximum page size.
 
 **Verification still required:** no local frontend install/build/lint, browser test, backend test, or PostgreSQL migration was run during this implementation. Confirm the frontend GitHub Actions workflow passes, then exercise remote and QR checkout, Paystack callback verification, role/branch authorization, kitchen transitions, guest tracking and duplicate/wrong-branch collection redemption. Run backend tests and apply the complete Alembic chain through `e6f2a9c4d810` on fresh and disposable-existing PostgreSQL databases.
+
+
+## Phase 7 — Production readiness and platform hardening
+
+Implemented on `feature/qless-phase-7` (draft PR):
+
+- Preserved `GET /health` and added a process-only `GET /health/live` probe plus a database-backed `GET /health/ready` probe. Readiness returns HTTP 503 with a sanitized dependency error when the database check fails.
+- Added regression tests for branch-scoped access across branches/businesses and immediate access revocation when a membership is suspended.
+- Added the Phase 7 production-readiness runbook covering deployment/secrets, payment and refund reconciliation, backup/restore drills, monitoring/incident response, load testing and release gates.
+- Extended backend CI push coverage to the Phase 7 branch; the existing frontend lint/build job remains in place.
+
+**Verification still required:** run the complete backend and frontend CI jobs. Exercise readiness with an available and unavailable PostgreSQL instance. Run Alembic against fresh and disposable-existing PostgreSQL databases. Complete Paystack test-mode reconciliation, concurrent collection redemption, encrypted backup/restore and staging load tests. These environment-dependent checks are not claimed as completed by this PR.
