@@ -13,6 +13,7 @@ from app.api.deps import get_db, get_optional_current_user, get_current_active_u
 from app.core.config import get_settings
 from app.core.rate_limiter import limiter
 from app.models.business_membership import BusinessMembership, BusinessRole
+from app.models.branch import Branch
 from app.models.order import Order
 from app.models.payment import Payment
 from app.models.store import Store
@@ -88,7 +89,7 @@ def _authorize_refund(db: Session, user: User, payment: Payment) -> None:
     if order.branch_id is not None:
         membership = db.scalar(select(BusinessMembership.id).where(
             BusinessMembership.user_id == user.id,
-            BusinessMembership.business_id == db.get(__import__("app.models.branch", fromlist=["Branch"]).Branch, order.branch_id).business_id,
+            BusinessMembership.business_id == db.get(Branch, order.branch_id).business_id,
             BusinessMembership.is_active.is_(True),
             BusinessMembership.role.in_([BusinessRole.OWNER, BusinessRole.FRANCHISE_ADMIN, BusinessRole.BRANCH_MANAGER]),
             (BusinessMembership.branch_id.is_(None)) | (BusinessMembership.branch_id == order.branch_id),
