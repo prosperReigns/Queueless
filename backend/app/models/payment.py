@@ -2,8 +2,7 @@
 from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum
-from sqlalchemy import CheckConstraint, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -41,7 +40,7 @@ class Payment(Base):
     refunds: Mapped[list["PaymentRefund"]] = relationship("PaymentRefund", back_populates="payment", cascade="all, delete-orphan")
 
 class PaymentEvent(Base):
-    """Deduplicates provider webhooks using a stable hash of the raw event."""
+    """Deduplicates provider webhooks using a stable canonical event hash."""
     __tablename__ = "payment_events"
     __table_args__ = (UniqueConstraint("provider", "event_key", name="uq_payment_event_provider_key"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -70,11 +69,13 @@ class PaymentRefund(Base):
     __tablename__ = "payment_refunds"
     __table_args__ = (
         UniqueConstraint("reference", name="uq_payment_refunds_reference"),
+        UniqueConstraint("idempotency_key", name="uq_payment_refunds_idempotency_key"),
         CheckConstraint("amount > 0", name="ck_payment_refunds_amount_positive"),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     payment_id: Mapped[int] = mapped_column(ForeignKey("payments.id", ondelete="CASCADE"), nullable=False, index=True)
     reference: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
     provider_refund_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="NGN")
