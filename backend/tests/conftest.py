@@ -11,7 +11,7 @@ from typing import Dict
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -130,7 +130,7 @@ def client(db_session_fixture: Session, monkeypatch: pytest.MonkeyPatch) -> Gene
         from app.models.payment import Payment
         reference = url.rstrip("/").rsplit("/", 1)[-1]
         payment = db_session_fixture.scalar(
-            __import__("sqlalchemy").select(Payment).where(Payment.reference == reference)
+            select(Payment).where(Payment.reference == reference)
         )
         amount = int(Decimal(payment.amount) * 100) if payment else 0
         return _MockResponse({
