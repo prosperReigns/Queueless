@@ -63,7 +63,7 @@ export function BusinessManagementPage() {
     {memberships.data&&<section className="store-card"><h2>Staff memberships</h2>{memberships.data.map(m=><div className="qless-report-row" key={m.id}><span>{m.user_id.slice(0,8)}…</span><span>{m.role}</span><span>{m.branch_id===null?'All branches':m.branch_id.slice(0,8)+'…'}</span><button disabled={toggleStaff.isPending||m.role==='owner'} onClick={()=>toggleStaff.mutate({id:m.id,active:!m.is_active})}>{m.is_active?'Suspend':'Reactivate'}</button></div>)}</section>}
     {businessId&&<section className="store-card qless-handoff-form"><h2>Menu setup</h2>
       <label>New category<input className="form-input" value={categoryName} onChange={e=>setCategoryName(e.target.value)} /></label>
-      <button disabled={!categoryName.trim()||addCategory.isPending} onClick={()=>addCategory.mutate()}>Add category</button>
+      <button disabled={!branchId||!categoryName.trim()||addCategory.isPending} onClick={()=>addCategory.mutate()}>Add category</button>
       <label>Item name<input className="form-input" value={itemName} onChange={e=>setItemName(e.target.value)} /></label>
       <label>Category<select className="form-input" value={categoryId} onChange={e=>setCategoryId(e.target.value)}><option value="">Select category</option>{(menu.data??[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       <label>Base price (NGN)<input className="form-input" type="number" min="0.01" step="0.01" value={itemPrice} onChange={e=>setItemPrice(e.target.value)} /></label>
