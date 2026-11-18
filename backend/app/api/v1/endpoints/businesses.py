@@ -5,6 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
@@ -229,7 +230,14 @@ def update_membership_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the owner can manage franchise administrators.")
     membership.is_active = payload.is_active
     db.add(membership)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Another active membership already exists for this user at the same scope.",
+        )
     db.refresh(membership)
     return MembershipResponse.model_validate(membership)
 
