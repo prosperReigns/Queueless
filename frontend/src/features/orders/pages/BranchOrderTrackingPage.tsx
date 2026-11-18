@@ -13,7 +13,7 @@ export function BranchOrderTrackingPage() {
   const tracking=useQuery({queryKey:['branch-order-tracking',orderId,submittedToken],queryFn:()=>getFulfillmentTrackingRequest(orderId,submittedToken||undefined),enabled:Boolean(orderId),refetchInterval:10000})
   const credential=useMutation({mutationFn:()=>issueCollectionCredentialRequest(orderId,submittedToken||undefined)})
   const verify=useMutation({mutationFn:()=>verifyBranchPaymentRequest(reference!,submittedToken||undefined),onSuccess:()=>tracking.refetch()})
-  useEffect(()=>{if(reference&&orderId>0&&!verify.isPending&&!verify.isSuccess&&!verify.isError)verify.mutate()},[reference,orderId,submittedToken])
+  useEffect(()=>{if(reference&&orderId>0&&!verify.isPending&&!verify.isSuccess&&!verify.isError)verify.mutate()},[reference,orderId,submittedToken,verify.mutate,verify.isPending,verify.isSuccess,verify.isError])
   const data=tracking.data
   return <section className="page-container qless-ops-page">
     <header className="page-header"><h1>Order tracking</h1><p>Follow kitchen preparation and collection status for order #{orderId||'—'}.</p></header>
