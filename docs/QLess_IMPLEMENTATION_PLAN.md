@@ -117,3 +117,20 @@ Implemented on `feature/qless-srs-alignment`:
 - Updated Alembic to read the application's `DATABASE_URL` rather than rely on the hard-coded URL in `alembic.ini`.
 
 **Verification still required:** run the backend test suite and apply Alembic against both a fresh PostgreSQL database and a disposable copy of the existing database before merging or deploying. The connected GitHub session did not provide a runnable CI result for this branch, so no passing test result is claimed.
+
+
+## Phase 2 implementation status
+
+Implemented on `feature/qless-srs-alignment`:
+
+- Added business-level menu categories and menu items.
+- Added branch-level menu availability and optional price overrides; the branch public menu resolves the permanent branch QR.
+- Added unified `POST /orders/branch` for remote preorders (selected `branch_id`) and onsite QR orders (permanent `branch_qr_token`).
+- Server-side order creation validates branch/business/menu state, computes prices from the database and stores immutable item-name and unit-price snapshots.
+- Added fulfillment selection for `self_collection` and `external_rider`; the latter represents a customer-arranged rider and does not imply Qless dispatch.
+- Added guest checkout with customer contact details and a high-entropy access token stored only as a SHA-256 hash. Guest tokens can authorize Paystack payment initialization.
+- Added branch-scoped order listing and Phase 2 API documentation.
+- Added schema-level tests for remote/onsite order payloads and quantity limits.
+- Added Alembic revision `b2e6c19a7d41`; legacy store/product endpoints remain in place and legacy records are not automatically backfilled.
+
+**Verification still required:** run backend tests, import/compile checks, and both fresh-database and disposable-existing-database migration tests. No CI/test or live PostgreSQL migration success is claimed. Before deployment, also verify Paystack guest payment initialization/webhook flow end-to-end. Phase 3 still owns payment event idempotency/reconciliation and strict provider verification; Phase 4 owns kitchen workflow/realtime; Phase 5 owns the temporary single-use collection credential.
