@@ -119,7 +119,7 @@ def test_e2e_customer_order_payment_and_merchant_completion_flow(client):
     payment_init = initiate_payment_resp.json()
     assert payment_init["authorization_url"] == "https://paystack.test/authorize"
     assert payment_init["access_code"] == "test_access_code"
-    assert payment_init["reference"] == "provider-test-reference"
+    assert payment_init["reference"] == order["payment_reference"]
     assert payment_init["payment"]["order_id"] == order["id"]
     assert payment_init["payment"]["status"] == "pending"
     assert payment_init["payment"]["amount"] == "3000.00"
@@ -144,7 +144,15 @@ def test_e2e_customer_order_payment_and_merchant_completion_flow(client):
     webhook_data = webhook_resp.json()
     assert webhook_data["status"] == "ok"
     assert webhook_data["processed"] == "true"
-    assert webhook_data["reason"] == "processed"
+    assert webhook_data["reason"] == "verified_success"
+
+    duplicate_webhook_resp = client.post(
+        "/api/v1/payments/webhook",
+        content=raw_body,
+        headers={"x-paystack-signature": signature, "content-type": "application/json"},
+    )
+    assert duplicate_webhook_resp.status_code == 200
+    assert duplicate_webhook_resp.json()["reason"] == "duplicate_event"
 
     customer_order_after_webhook = client.get(
         f"/api/v1/orders/{order['id']}",
