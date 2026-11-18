@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.branch import Branch
 from app.models.branch_qr_code import BranchQRCode
-from app.models.menu import MenuItem, BranchMenuItem
+from app.models.menu import MenuItem, BranchMenuItem, MenuCategory
+from app.models.order import OrderSource as ORMOrderSource, FulfillmentMethod as ORMFulfillmentMethod
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
 
@@ -32,6 +33,10 @@ def create_branch_order(db: Session, payload, user_id=None):
         item = by_id.get(line.menu_item_id)
         if item is None:
             raise ValueError("One or more menu items are unavailable at this branch.")
+        if item.category_id is not None:
+            category = db.get(MenuCategory, item.category_id)
+            if category is None or not category.is_active:
+                raise ValueError(f"{item.name} is not in an active menu category.")
         override = db.scalar(select(BranchMenuItem).where(BranchMenuItem.branch_id == branch.id, BranchMenuItem.menu_item_id == item.id))
         if override is not None and not override.is_available:
             raise ValueError(f"{item.name} is not available at this branch.")
@@ -40,8 +45,8 @@ def create_branch_order(db: Session, payload, user_id=None):
         total += price * line.quantity
     guest_token = secrets.token_urlsafe(32) if user_id is None else None
     order = Order(
-        user_id=user_id, store_id=None, branch_id=branch.id, order_source=payload.source,
-        fulfillment_method=payload.fulfillment_method, scheduled_for=payload.scheduled_for,
+        user_id=user_id, store_id=None, branch_id=branch.id, order_source=ORMOrderSource(payload.source.value),
+        fulfillment_method=ORMFulfillmentMethod(payload.fulfillment_method.value), scheduled_for=payload.scheduled_for,
         customer_name=payload.customer_name, customer_email=payload.customer_email,
         customer_phone=payload.customer_phone,
         guest_access_token_hash=hashlib.sha256(guest_token.encode()).hexdigest() if guest_token else None,
