@@ -14,7 +14,7 @@ class MenuCategoryCreate(BaseModel):
 class MenuItemCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: Optional[str] = None
-    category_id: Optional[uuid.UUID] = None
+    category_id: uuid.UUID
     base_price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     image_url: Optional[HttpUrl] = None
 
