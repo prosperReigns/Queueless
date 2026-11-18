@@ -24,7 +24,7 @@ from app.schemas.payment import (
 )
 from app.services.payment_service import (
     handle_paystack_webhook_event, initialize_paystack_payment,
-    initiate_paystack_refund, reconcile_paystack_refund, verify_paystack_webhook_signature,
+    has_valid_guest_checkout_token, initiate_paystack_refund, reconcile_paystack_refund, verify_paystack_webhook_signature,
     verify_payment_and_reconcile,
 )
 
@@ -66,13 +66,8 @@ def verify_payment(
         raise HTTPException(status_code=404, detail="Order not found.")
     if current_user is not None and (current_user.role == UserRole.ADMIN or order.user_id == current_user.id):
         pass
-    else:
-        supplied_hash = hashlib.sha256((payload.guest_access_token or "").encode()).hexdigest()
-        if (order.user_id is not None or not order.guest_access_token_hash
-            or not order.guest_access_token_expires_at
-            or order.guest_access_token_expires_at <= datetime.now(timezone.utc)
-            or not secrets.compare_digest(supplied_hash, order.guest_access_token_hash)):
-            raise HTTPException(status_code=401 if current_user is None else 403, detail="Valid order owner credentials required.")
+    elif not has_valid_guest_checkout_token(order, payload.guest_access_token):
+        raise HTTPException(status_code=401 if current_user is None else 403, detail="Valid order owner credentials required.")
     try:
         verified_payment, provider_status = verify_payment_and_reconcile(db, payload.reference)
     except ValueError as exc:
