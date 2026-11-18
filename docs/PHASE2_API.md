@@ -52,7 +52,7 @@ The customer scans the permanent branch QR. The client sends the resolved branch
 
 Both payloads are processed by the same branch order service. The server resolves the branch, checks active menu items and branch overrides, calculates prices from database values, and stores item-name and unit-price snapshots. Client-supplied prices are not accepted.
 
-For a guest order, the response contains `guest_access_token`. Store it securely and submit it to `POST /payments/initiate` as `guest_access_token` to authorize payment. Authenticated customers use their bearer token instead. The token is stored as a SHA-256 hash on the order.
+For a guest order, the response contains `guest_access_token`. Store it securely; it expires after 24 hours. Submit it to `POST /payments/initiate` as `guest_access_token` to authorize payment. Authenticated customers use their bearer token instead. The token is stored as a SHA-256 hash on the order.
 
 ## Branch operations
 
