@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel
@@ -18,9 +16,8 @@ from app.models.branch import Branch
 from app.models.business_membership import BusinessRole
 from app.models.kitchen import KitchenEvent, KitchenTicket, KitchenTicketStatus
 from app.models.order import Order, OrderStatus
-from app.models.order_item import OrderItem
 from app.models.user import User, UserRole
-from app.services.business_service import can_access_branch, get_membership
+from app.services.business_service import get_membership
 from app.services.kitchen_service import transition_kitchen_ticket
 
 router = APIRouter(tags=["kitchen"])
@@ -207,5 +204,5 @@ async def kitchen_events_websocket(
                 cursor = item["id"]
             if not payloads:
                 await asyncio.sleep(1)
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         return

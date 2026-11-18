@@ -30,7 +30,7 @@ class KitchenTicket(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="CASCADE"), nullable=False)
-    status: Mapped[KitchenTicketStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=KitchenTicketStatus.NEW.value, server_default="new"
     )
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
