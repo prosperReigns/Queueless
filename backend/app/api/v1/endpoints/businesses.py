@@ -77,7 +77,15 @@ def get_business_endpoint(
     current_user: User = Depends(get_current_active_user),
 ) -> BusinessWithRoleResponse:
     business = _require_business_access(db, current_user, business_id)
-    membership = get_membership(db, current_user.id, business_id) if current_user.role != UserRole.ADMIN else None
+    membership = None
+    if current_user.role != UserRole.ADMIN:
+        membership = db.scalar(
+            select(BusinessMembership).where(
+                BusinessMembership.user_id == current_user.id,
+                BusinessMembership.business_id == business_id,
+                BusinessMembership.is_active.is_(True),
+            ).order_by(BusinessMembership.branch_id.asc().nulls_first())
+        )
     response = BusinessResponse.model_validate(business).model_dump()
     response["membership_role"] = membership.role if membership else None
     return BusinessWithRoleResponse.model_validate(response)
@@ -116,12 +124,17 @@ def list_business_branches_endpoint(
     if current_user.role == UserRole.ADMIN:
         return [BranchResponse.model_validate(branch) for branch in branches]
     membership = get_membership(db, current_user.id, business_id)
-    if membership and membership.branch_id is None:
+    if membership is not None:
         return [BranchResponse.model_validate(branch) for branch in branches]
-    return [
-        BranchResponse.model_validate(branch) for branch in branches
-        if membership and branch.id == membership.branch_id
-    ]
+    assigned_branch_ids = set(db.scalars(
+        select(BusinessMembership.branch_id).where(
+            BusinessMembership.user_id == current_user.id,
+            BusinessMembership.business_id == business_id,
+            BusinessMembership.is_active.is_(True),
+            BusinessMembership.branch_id.is_not(None),
+        )
+    ).all())
+    return [BranchResponse.model_validate(branch) for branch in branches if branch.id in assigned_branch_ids]
 
 
 @router.get("/branches/{branch_id}", response_model=BranchResponse)
