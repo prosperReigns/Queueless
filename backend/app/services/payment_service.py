@@ -5,6 +5,7 @@ import hmac
 import json
 import logging
 import secrets
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, Optional, Tuple
@@ -188,9 +189,13 @@ def initialize_paystack_payment(
     if payment.status == PaymentStatus.SUCCESS:
         raise ValueError("This order has already been paid.")
     if payment.status == PaymentStatus.FAILED:
-        raise ValueError("This payment attempt failed. Create a new order to retry payment.")
+        # Keep the failed attempt for audit; retry with a fresh provider reference.
+        order.payment_reference = str(uuid.uuid4())
+        db.flush()
+        payment = _get_or_create_payment_for_order(db, order)
     if payment.authorization_url and payment.access_code:
         db.commit()
+        schedule_payment_verification_fallback(payment.reference)
         return {"payment": payment, "authorization_url": payment.authorization_url, "access_code": payment.access_code, "reference": payment.reference}
 
     payload: Dict[str, Any] = {
