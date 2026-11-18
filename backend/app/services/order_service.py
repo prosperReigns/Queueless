@@ -29,6 +29,7 @@ class OrderStatusTransitionActor(str, Enum):
     MERCHANT = "merchant"
     PAYMENT_WEBHOOK = "payment_webhook"
     PAYMENT_FALLBACK_VERIFICATION = "payment_fallback_verification"
+    PAYMENT_MANUAL_VERIFICATION = "payment_manual_verification"
     SYSTEM = "system"
 
 
@@ -46,6 +47,9 @@ _ACTOR_ALLOWED_TRANSITIONS: Dict[OrderStatusTransitionActor, Dict[OrderStatus, S
         OrderStatus.PENDING: {OrderStatus.PAID},
     },
     OrderStatusTransitionActor.PAYMENT_FALLBACK_VERIFICATION: {
+        OrderStatus.PENDING: {OrderStatus.PAID},
+    },
+    OrderStatusTransitionActor.PAYMENT_MANUAL_VERIFICATION: {
         OrderStatus.PENDING: {OrderStatus.PAID},
     },
     OrderStatusTransitionActor.MERCHANT: {
