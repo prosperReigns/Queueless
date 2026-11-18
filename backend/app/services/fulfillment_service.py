@@ -1,6 +1,6 @@
 """Order collection credentials, fulfillment lifecycle and handoff."""
 from __future__ import annotations
-import hashlib, json, secrets
+import hashlib, hmac, json, secrets
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,7 +10,8 @@ from app.models.kitchen import KitchenTicket, KitchenTicketStatus
 from app.models.order import FulfillmentMethod, Order, OrderStatus
 
 def _digest(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+    # A server-side pepper prevents offline PIN guessing after a DB-only compromise.
+    return hmac.new(get_settings().JWT_SECRET_KEY.encode(), value.encode("utf-8"), hashlib.sha256).hexdigest()
 
 def _record_event(db: Session, order: Order, event_type: str, payload: dict) -> None:
     db.add(FulfillmentEvent(order_id=order.id, branch_id=order.branch_id, event_type=event_type, event_payload=payload))
@@ -48,12 +49,15 @@ def issue_collection_credential(db: Session, order: Order, *, rotate: bool = Fal
         raise ValueError("This order is not ready for collection.")
     credential = db.scalar(select(CollectionCredential).where(CollectionCredential.order_id == order.id).with_for_update())
     now = datetime.now(timezone.utc)
-    if credential is not None and credential.status == CollectionCredentialStatus.ISSUED:
-        expiry = credential.expires_at if credential.expires_at.tzinfo else credential.expires_at.replace(tzinfo=timezone.utc)
-        if expiry > now and not rotate:
-            raise ValueError("An active collection credential already exists. Request an explicit rotation if it has been lost.")
-        if expiry <= now:
-            credential.status = CollectionCredentialStatus.EXPIRED
+    if credential is not None and not rotate:
+        if credential.status == CollectionCredentialStatus.ISSUED:
+            expiry = credential.expires_at if credential.expires_at.tzinfo else credential.expires_at.replace(tzinfo=timezone.utc)
+            if expiry <= now:
+                credential.status = CollectionCredentialStatus.EXPIRED
+                db.add(credential); db.commit()
+                raise ValueError("The collection credential has expired. Set rotate=true to issue a replacement.")
+            raise ValueError("An active collection credential already exists. Set rotate=true only if it has been lost.")
+        raise ValueError("A collection credential already exists. Set rotate=true to replace it.")
     token = secrets.token_urlsafe(32)
     pin = f"{secrets.randbelow(100_000_000):08d}"
     expires_at = now + timedelta(minutes=get_settings().COLLECTION_CREDENTIAL_TTL_MINUTES)

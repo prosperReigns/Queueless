@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     TERMII_CHANNEL: str = "generic"
     TERMII_SEND_ORDER_READY_SMS: bool = False
     TERMII_TIMEOUT_SECONDS: int = Field(default=10, ge=1, le=60)
+    COLLECTION_CREDENTIAL_TTL_MINUTES: int = Field(default=180, ge=15, le=1440, description="Lifetime of a single-use collection QR/PIN credential.")
     ORDER_EXPIRY_MINUTES: int = Field(
         default=10,
         ge=1,
