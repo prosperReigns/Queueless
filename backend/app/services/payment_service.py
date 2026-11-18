@@ -252,7 +252,14 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
     event_type = str(event.get("event") or "unknown")[:100]
     payload = event.get("data") or {}
     reference = payload.get("reference") if isinstance(payload, dict) else None
-    if event_type in {"refund.processed", "refund.failed"} and isinstance(payload, dict):
+    refund_event_statuses = {
+        "refund.pending": "pending",
+        "refund.processing": "processing",
+        "refund.needs-attention": "needs_attention",
+        "refund.processed": "processed",
+        "refund.failed": "failed",
+    }
+    if event_type in refund_event_statuses and isinstance(payload, dict):
         event_key = hashlib.sha256(json.dumps(event, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         event_row = db.scalar(select(PaymentEvent).where(
             PaymentEvent.provider == PaymentProvider.PAYSTACK,
@@ -260,20 +267,58 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
         ).with_for_update())
         if event_row is not None and event_row.processing_status in {"processed", "ignored"}:
             return True, "duplicate_event"
-        refund_reference = payload.get("reference")
-        refund = db.scalar(select(PaymentRefund).where(PaymentRefund.reference == refund_reference).with_for_update()) if refund_reference else None
+
+        refund_reference = payload.get("refund_reference") or payload.get("reference")
+        provider_refund_id = payload.get("id")
+        refund = None
+        if refund_reference:
+            refund = db.scalar(select(PaymentRefund).where(
+                PaymentRefund.reference == str(refund_reference)
+            ).with_for_update())
+        if refund is None and provider_refund_id is not None:
+            refund = db.scalar(select(PaymentRefund).where(
+                PaymentRefund.provider_refund_id == str(provider_refund_id)
+            ).with_for_update())
+
+        transaction_reference = payload.get("transaction_reference")
+        transaction = payload.get("transaction")
+        if not transaction_reference and isinstance(transaction, dict):
+            transaction_reference = transaction.get("reference")
+        if refund is None and transaction_reference:
+            payment = get_payment_by_reference(db, str(transaction_reference))
+            if payment is not None:
+                candidates = list(db.scalars(select(PaymentRefund).where(
+                    PaymentRefund.payment_id == payment.id,
+                    PaymentRefund.status.in_(["pending", "processing", "pending_unknown", "needs_attention"]),
+                ).with_for_update()).all())
+                event_amount_value = payload.get("deducted_amount") or payload.get("amount")
+                if event_amount_value is not None:
+                    try:
+                        event_amount = Decimal(str(event_amount_value)) / Decimal("100")
+                        candidates = [candidate for candidate in candidates if Decimal(candidate.amount) == event_amount]
+                    except Exception:
+                        candidates = []
+                if len(candidates) == 1:
+                    refund = candidates[0]
+
         if event_row is None:
-            event_row = PaymentEvent(provider=PaymentProvider.PAYSTACK, event_key=event_key, event_type=event_type, payment_reference=None, payload_hash=event_key, processing_status="received")
+            event_row = PaymentEvent(
+                provider=PaymentProvider.PAYSTACK, event_key=event_key,
+                event_type=event_type, payment_reference=str(transaction_reference) if transaction_reference else None,
+                payload_hash=event_key, processing_status="received",
+            )
             db.add(event_row)
         if refund is None:
             event_row.processing_status = "ignored"
-            event_row.error_message = "Refund reference not found."
+            event_row.error_message = "No unambiguous local refund matched this provider event."
             event_row.processed_at = datetime.now(timezone.utc)
             db.commit()
             return True, "refund_not_found"
-        if payload.get("amount") is not None:
+
+        event_amount_value = payload.get("deducted_amount") or payload.get("amount")
+        if event_amount_value is not None:
             try:
-                event_amount = int(payload["amount"])
+                event_amount = int(Decimal(str(event_amount_value)))
             except (TypeError, ValueError):
                 event_amount = -1
             expected_refund_amount = int((Decimal(refund.amount) * 100).quantize(Decimal("1")))
@@ -283,18 +328,25 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
                 event_row.processed_at = datetime.now(timezone.utc)
                 db.commit()
                 return True, "refund_verification_mismatch"
-        if event_type == "refund.processed" and refund.status != "processed":
-            refund.status = "processed"
-            refund.processed_at = datetime.now(timezone.utc)
-            payment = db.scalar(select(Payment).where(Payment.id == refund.payment_id).with_for_update())
-            if payment is not None:
-                payment.amount_refunded = (Decimal(payment.amount_refunded or 0) + Decimal(refund.amount)).quantize(Decimal("0.01"))
-        elif event_type == "refund.failed" and refund.status != "processed":
-            refund.status = "failed"
+
+        incoming_status = refund_event_statuses[event_type]
+        if refund.status != "processed" and refund.status != "failed":
+            previous_status = refund.status
+            refund.status = incoming_status
+            if provider_refund_id is not None:
+                refund.provider_refund_id = str(provider_refund_id)
+            if incoming_status == "processed":
+                refund.processed_at = datetime.now(timezone.utc)
+                payment = db.scalar(select(Payment).where(Payment.id == refund.payment_id).with_for_update())
+                if payment is not None:
+                    payment.amount_refunded = (Decimal(payment.amount_refunded or 0) + Decimal(refund.amount)).quantize(Decimal("0.01"))
+            if incoming_status in {"processed", "failed"}:
+                refund.last_error = None
         event_row.processing_status = "processed"
         event_row.processed_at = datetime.now(timezone.utc)
+        event_row.error_message = None
         db.commit()
-        return True, "refund_updated"
+        return True, f"refund_{incoming_status}"
     event_key = hashlib.sha256(json.dumps(event, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     existing = db.scalar(select(PaymentEvent).where(
         PaymentEvent.provider == PaymentProvider.PAYSTACK,
