@@ -100,3 +100,20 @@ This document maps the existing Queueless implementation to the agreed Qless SRS
 - A collection credential cannot be reused, guessed, used at another branch, or redeemed before the order is ready.
 - Notification failure does not roll back or lose an accepted order.
 - Existing customers, stores, products and orders remain accessible during migration.
+
+
+## Phase 1 implementation status
+
+Implemented on `feature/qless-srs-alignment`:
+
+- Added tenant models for businesses, branches, memberships and permanent branch QR identities.
+- Added business and branch API schemas, services and authenticated endpoints.
+- Business creator receives the owner membership automatically.
+- Added branch-level staff roles and business-level owner/franchise-admin roles with database scope constraints.
+- Added server-side business/branch access checks; branch staff only receive their assigned branch list.
+- Added permanent branch QR resolution endpoint. It does not authorize order collection.
+- Added migration revision `91d4a7c2e601`. It creates missing legacy tables on a fresh database when absent, then adds the Phase 1 tables; existing legacy tables are not dropped or rewritten.
+- Added service tests for owner assignment, QR identity and branch-level access isolation.
+- Updated Alembic to read the application's `DATABASE_URL` rather than rely on the hard-coded URL in `alembic.ini`.
+
+**Verification still required:** run the backend test suite and apply Alembic against both a fresh PostgreSQL database and a disposable copy of the existing database before merging or deploying. The connected GitHub session did not provide a runnable CI result for this branch, so no passing test result is claimed.
