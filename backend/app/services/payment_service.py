@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import secrets
 import hmac
 import json
 import logging
@@ -51,7 +52,8 @@ def initialize_paystack_payment(
     db: Session,
     *,
     order_id: int,
-    user: User,
+    user: Optional[User],
+    guest_access_token: Optional[str] = None,
     callback_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Initialize Paystack transaction and persist pending payment."""
@@ -70,17 +72,17 @@ def initialize_paystack_payment(
             extra={"event": "payment_initialization_failed", "order_id": order_id, "reason": "order_not_found"},
         )
         raise ValueError("Order not found.")
-    if order.user_id != user.id:
-        logger.warning(
-            "Payment initialization failed: unauthorized user.",
-            extra={
-                "event": "payment_initialization_failed",
-                "order_id": order_id,
-                "user_id": str(user.id),
-                "reason": "unauthorized_user",
-            },
-        )
-        raise ValueError("Not enough permissions.")
+    if user is not None:
+        if order.user_id != user.id:
+            raise ValueError("Not enough permissions.")
+        payer_email = user.email
+    else:
+        supplied_hash = hashlib.sha256((guest_access_token or "").encode()).hexdigest()
+        if order.user_id is not None or not order.guest_access_token_hash or not secrets.compare_digest(supplied_hash, order.guest_access_token_hash):
+            raise ValueError("A valid guest checkout token is required.")
+        payer_email = order.customer_email
+    if not payer_email:
+        raise ValueError("A customer email address is required for payment.")
     if order.status != OrderStatus.PENDING:
         logger.warning(
             "Payment initialization failed: order not pending.",
@@ -97,7 +99,7 @@ def initialize_paystack_payment(
     payment = _get_or_create_payment_for_order(db, order)
 
     payload: Dict[str, Any] = {
-        "email": user.email,
+        "email": payer_email,
         "amount": int(order.total_amount * 100),
         "reference": payment.reference,
     }
