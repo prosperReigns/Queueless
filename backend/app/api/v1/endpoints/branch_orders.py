@@ -26,7 +26,7 @@ def create_branch_order_endpoint(
     db: Session = Depends(get_db),
     user: Optional[User] = Depends(get_optional_current_user),
 ):
-    """Create a preorder or onsite QR order; guests receive a one-time checkout secret."""
+    """Create a preorder or onsite QR order; guests receive a time-limited checkout token."""
     if user is not None and user.role not in (UserRole.CUSTOMER, UserRole.ADMIN):
         raise HTTPException(status_code=403, detail="Customer account required.")
     try:
@@ -52,7 +52,7 @@ def list_branch_orders(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
-    user: User = Depends(get_optional_current_user),
+    user: Optional[User] = Depends(get_optional_current_user),
 ):
     """List orders for one branch; branch membership is checked server-side."""
     branch = db.get(Branch, branch_id)
