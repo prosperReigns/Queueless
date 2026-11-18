@@ -80,7 +80,11 @@ def get_membership(db: Session, user_id: uuid.UUID, business_id: uuid.UUID, bran
 def can_access_business(db: Session, user: User, business_id: uuid.UUID) -> bool:
     if user.role.value == "admin":
         return True
-    return get_membership(db, user.id, business_id) is not None
+    return db.scalar(select(BusinessMembership.id).where(
+        BusinessMembership.user_id == user.id,
+        BusinessMembership.business_id == business_id,
+        BusinessMembership.is_active.is_(True),
+    )) is not None
 
 def can_access_branch(db: Session, user: User, branch: Branch) -> bool:
     if user.role.value == "admin":
