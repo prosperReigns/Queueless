@@ -117,17 +117,35 @@ def client(db_session_fixture: Session, monkeypatch: pytest.MonkeyPatch) -> Gene
         def json(self) -> Dict[str, object]:
             return {"status": True, "data": self._data}
 
-    def mock_paystack_post(_url, *, json=None, **_kwargs):
+    def mock_paystack_post(url, *, json=None, **_kwargs):
         payload = json or {}
+        if url.rstrip("/").endswith("/refund"):
+            return _MockResponse({
+                "id": 123456,
+                "status": "pending",
+                "reference": payload.get("reference"),
+            })
         return _MockResponse({
             "authorization_url": "https://paystack.test/authorize",
             "access_code": "test_access_code",
             "reference": payload.get("reference"),
         })
 
-    def mock_paystack_get(url, **_kwargs):
+    def mock_paystack_get(url, *, params=None, **_kwargs):
         from decimal import Decimal
-        from app.models.payment import Payment
+        from app.models.payment import Payment, PaymentRefund
+        if url.rstrip("/").endswith("/refund"):
+            refund_reference = (params or {}).get("reference")
+            refund = db_session_fixture.scalar(
+                select(PaymentRefund).where(PaymentRefund.reference == refund_reference)
+            )
+            return _MockResponse([{
+                "id": 123456,
+                "status": "processed",
+                "reference": refund_reference,
+                "amount": int(Decimal(refund.amount) * 100) if refund else 0,
+                "currency": "NGN",
+            }] if refund else [])
         reference = url.rstrip("/").rsplit("/", 1)[-1]
         payment = db_session_fixture.scalar(
             select(Payment).where(Payment.reference == reference)
