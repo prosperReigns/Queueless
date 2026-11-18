@@ -468,7 +468,11 @@ def reconcile_paystack_refund(db: Session, refund_reference: str) -> PaymentRefu
         raise ValueError("Paystack has no refund record for this reference yet.")
     provider_status = str(match.get("status") or "pending").lower().replace("-", "_")
     normalized = provider_status if provider_status in {"pending", "processing", "processed", "failed", "needs_attention"} else "pending"
-    if refund.status != "processed" and normalized == "processed":
+    if refund.status == "processed":
+        normalized = "processed"
+    elif refund.status == "failed":
+        normalized = "failed"
+    if refund.status != "processed" and refund.status != "failed" and normalized == "processed":
         payment = db.scalar(select(Payment).where(Payment.id == refund.payment_id).with_for_update())
         if payment is not None:
             payment.amount_refunded = (Decimal(payment.amount_refunded or 0) + Decimal(refund.amount)).quantize(Decimal("0.01"))
