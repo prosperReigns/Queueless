@@ -60,7 +60,7 @@ def upgrade() -> None:
     op.create_index("ix_fulfillment_events_order_id", "fulfillment_events", ["order_id"])
     op.execute("""
         INSERT INTO order_fulfillments (order_id, branch_id, method, status, ready_at, updated_at)
-        SELECT o.id, o.branch_id, o.fulfillment_method,
+        SELECT o.id, o.branch_id, o.fulfillment_method::text,
                CASE WHEN kt.status = 'ready' THEN 'ready_for_collection' ELSE 'awaiting_preparation' END,
                CASE WHEN kt.status = 'ready' THEN kt.ready_at ELSE NULL END, now()
         FROM orders o

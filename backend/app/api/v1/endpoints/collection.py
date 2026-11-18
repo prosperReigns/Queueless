@@ -1,7 +1,7 @@
 """Customer collection credential issuance and branch handoff redemption."""
 from __future__ import annotations
 import uuid
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_active_user, get_db, get_optional_current_user
@@ -54,13 +54,15 @@ def get_order_tracking(order_id: int, x_guest_access_token: str | None = Header(
 
 @router.post("/orders/{order_id}/collection-credential", response_model=CollectionCredentialResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-def create_collection_credential(request: Request, order_id: int, payload: CollectionCredentialIssueRequest, x_guest_access_token: str | None = Header(default=None), db: Session = Depends(get_db), user: User | None = Depends(get_optional_current_user)):
+def create_collection_credential(request: Request, response: Response, order_id: int, payload: CollectionCredentialIssueRequest, x_guest_access_token: str | None = Header(default=None), db: Session = Depends(get_db), user: User | None = Depends(get_optional_current_user)):
     order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found.")
     _authorize_customer_order(order, user, x_guest_access_token)
     try:
-        return issue_collection_credential(db, order, rotate=payload.rotate)
+        result = issue_collection_credential(db, order, rotate=payload.rotate)
+        response.headers["Cache-Control"] = "no-store, private"
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
