@@ -291,3 +291,39 @@ Generate:
 Do NOT skip implementation details.
 Write clean, scalable, maintainable code.
 
+
+---
+
+# Qless SRS target architecture (supersedes conflicting single-store assumptions above)
+
+The implementation plan in [docs/QLess_IMPLEMENTATION_PLAN.md](../docs/QLess_IMPLEMENTATION_PLAN.md) is the source of truth for the migration.
+
+Qless is a multi-tenant restaurant ordering and queue-management platform for independent restaurants and franchises. The target hierarchy is Business → Branches → Staff. A business may operate one or many branches. Branches own their operating hours, QR identity, kitchen queue, fulfillment workflow and branch-specific item availability/pricing.
+
+## Target modules
+
+- identity and memberships
+- businesses and branches
+- menus and branch menu overrides
+- carts and unified orders
+- payment providers, payment events and refunds
+- kitchen display and preparation tickets
+- fulfillment, collection credentials and handoff events
+- notifications, audit logs and analytics
+
+## Required order semantics
+
+Every order records its branch and origin channel (`preorder` or `onsite_qr`), plus fulfillment method (`self_pickup` or `external_rider`). Both customer journeys must call the same order creation and processing services.
+
+Payment state is independent of operational order state. A successful provider webhook must be verified against the provider, amount, currency and reference, then persisted idempotently. An order must not be released for preparation or collection while payment remains unverified, unless a future business policy explicitly supports pay-at-counter.
+
+## QR semantics
+
+- Branch QR is permanent and resolves a branch's public menu. It is not a payment or collection credential.
+- Collection QR/PIN is temporary, high-entropy, bound to one order and branch, expiring, revocable and single-use. Store only a hash of the secret and redeem atomically after checking payment and READY status.
+
+## Kitchen and fulfillment
+
+Kitchen tickets are branch-scoped and move through NEW → ACCEPTED → PREPARING → READY. Customer pickup and third-party rider collection are distinct fulfillment paths. Qless verifies handoff to the customer or authorized rider; it does not operate a rider fleet in the MVP.
+
+Use a modular monolith. PostgreSQL remains the source of truth; WebSockets deliver updates but do not own state. Important notifications should be queued durably and retried.
