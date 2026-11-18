@@ -35,6 +35,7 @@ A branch defaults to country `NG` and timezone `Africa/Lagos`, both configurable
 
 - `POST /businesses/{business_id}/memberships` — assign an existing active Qless user.
 - `GET /businesses/{business_id}/memberships` — list memberships; owner/franchise administrator only.
+- `PATCH /businesses/{business_id}/memberships/{membership_id}` — activate or suspend a staff membership without deleting its history. Franchise administrators cannot manage other franchise administrators; owner membership is protected.
 
 Roles:
 - Business scope (`branch_id: null`): `owner`, `franchise_admin`.
