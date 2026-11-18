@@ -46,7 +46,7 @@ def create_branch_order_endpoint(
     }
 
 
-@router.get("/orders/branch/mine")
+@router.get("/customers/me/branch-orders")
 def list_my_branch_orders(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
