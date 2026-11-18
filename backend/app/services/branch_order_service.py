@@ -2,6 +2,7 @@
 from __future__ import annotations
 import hashlib, secrets, uuid
 from decimal import Decimal
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.branch import Branch
@@ -10,6 +11,7 @@ from app.models.menu import MenuItem, BranchMenuItem, MenuCategory
 from app.models.order import OrderSource as ORMOrderSource, FulfillmentMethod as ORMFulfillmentMethod
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
+from app.tasks.orders import schedule_order_expiry
 
 def create_branch_order(db: Session, payload, user_id=None):
     if payload.source == "onsite_qr":
@@ -50,8 +52,10 @@ def create_branch_order(db: Session, payload, user_id=None):
         customer_name=payload.customer_name, customer_email=payload.customer_email,
         customer_phone=payload.customer_phone,
         guest_access_token_hash=hashlib.sha256(guest_token.encode()).hexdigest() if guest_token else None,
+        guest_access_token_expires_at=(datetime.now(timezone.utc) + timedelta(hours=24)) if guest_token else None,
         total_amount=total.quantize(Decimal("0.01")), status=OrderStatus.PENDING,
         payment_reference=str(uuid.uuid4()), items=snapshots,
     )
     db.add(order); db.commit(); db.refresh(order)
+    schedule_order_expiry(order.id)
     return order, guest_token
