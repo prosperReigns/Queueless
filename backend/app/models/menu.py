@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
@@ -21,6 +21,7 @@ class MenuCategory(Base):
 
 class MenuItem(Base):
     __tablename__ = "menu_items"
+    __table_args__ = (CheckConstraint("base_price > 0", name="ck_menu_items_base_price_positive"),)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     business_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False, index=True)
     category_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("menu_categories.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -33,7 +34,7 @@ class MenuItem(Base):
 
 class BranchMenuItem(Base):
     __tablename__ = "branch_menu_items"
-    __table_args__ = (UniqueConstraint("branch_id", "menu_item_id", name="uq_branch_menu_item"),)
+    __table_args__ = (UniqueConstraint("branch_id", "menu_item_id", name="uq_branch_menu_item"), CheckConstraint("price_override IS NULL OR price_override > 0", name="ck_branch_menu_price_positive"))
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True)
     menu_item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("menu_items.id", ondelete="CASCADE"), nullable=False, index=True)
