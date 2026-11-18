@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import {
   createBranchRequest, createBusinessRequest, createMembershipRequest, createMenuCategoryRequest,
-  createMenuItemRequest, getPublicBranchMenuRequest, listBranchesRequest, listBusinessesRequest,
+  createMenuItemRequest, getBranchQrRequest, getPublicBranchMenuRequest, listBranchesRequest, listBusinessesRequest,
   listMembershipsRequest, updateBranchMenuItemRequest, updateMembershipRequest,
 } from '../../../api/qless'
 
@@ -25,6 +25,7 @@ export function BusinessManagementPage() {
   const branches = useQuery({queryKey:['qless-branches',businessId],queryFn:()=>listBranchesRequest(businessId),enabled:Boolean(businessId)})
   const memberships = useQuery({queryKey:['qless-memberships',businessId],queryFn:()=>listMembershipsRequest(businessId),enabled:Boolean(businessId)})
   const menu = useQuery({queryKey:['qless-branch-menu',branchId],queryFn:()=>getPublicBranchMenuRequest(branchId),enabled:Boolean(branchId)})
+  const branchQr = useQuery({queryKey:['qless-branch-qr',branchId],queryFn:()=>getBranchQrRequest(branchId),enabled:Boolean(branchId)})
   const refreshBusiness = () => client.invalidateQueries({queryKey:['qless-businesses']})
   const createBusiness = useMutation({mutationFn:()=>createBusinessRequest({name:businessName.trim(),business_type:businessType}),onSuccess:async b=>{setBusinessId(b.id);setBusinessName('');await refreshBusiness()}})
   const createBranch = useMutation({mutationFn:()=>createBranchRequest(businessId,{name:branchName.trim(),city:city.trim()||undefined,country:'NG'}),onSuccess:async()=>{setBranchName('');setCity('');await client.invalidateQueries({queryKey:['qless-branches',businessId]})}})
@@ -47,6 +48,7 @@ export function BusinessManagementPage() {
       <label>Business<select className="form-input" value={businessId} onChange={e=>{setBusinessId(e.target.value);setBranchId('')}}><option value="">Select business</option>{(businesses.data??[]).map(b=><option key={b.id} value={b.id}>{b.name} · {b.membership_role??'staff'}</option>)}</select></label>
       <label>Branch<select className="form-input" value={branchId} onChange={e=>setBranchId(e.target.value)} disabled={!businessId}><option value="">Select branch</option>{(branches.data??[]).map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
     </div>
+    {branchQr.data&&<section className="store-card"><h2>Permanent branch menu QR</h2><p>Use this URL in the branch's printed QR code. It opens the public menu and never authorizes collection.</p><a className="inline-link" href={branchQr.data.menu_url} target="_blank" rel="noreferrer">Open branch menu</a><p className="muted-text">{branchQr.data.menu_url}</p></section>}
     {businessId&&<div className="qless-management-grid">
       <section className="store-card qless-handoff-form"><h2>Add a branch</h2>
         <label>Branch name<input className="form-input" value={branchName} onChange={e=>setBranchName(e.target.value)} /></label>
