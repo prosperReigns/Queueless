@@ -1,8 +1,5 @@
 """Payment endpoints for Paystack initialization, verification and refunds."""
 from __future__ import annotations
-from datetime import datetime, timezone
-import hashlib
-import secrets
 from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
