@@ -1,4 +1,4 @@
-"""Add Qless business, branch, membership and branch QR tables.
+"""Create missing legacy baseline tables and add Qless business/branch domain.
 
 Revision ID: 91d4a7c2e601
 Revises: 4bfa6bf1f138
@@ -13,7 +13,10 @@ down_revision: Union[str, None] = "4bfa6bf1f138"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-
+user_role = sa.Enum("CUSTOMER", "MERCHANT", "ADMIN", name="user_role")
+order_status = sa.Enum("PENDING", "PAID", "PREPARING", "READY", "COMPLETED", "CANCELLED", name="order_status")
+payment_status = sa.Enum("PENDING", "SUCCESS", "FAILED", name="payment_status")
+payment_provider = sa.Enum("PAYSTACK", name="payment_provider")
 business_type = sa.Enum("independent", "franchise", name="business_type")
 business_role = sa.Enum(
     "owner", "franchise_admin", "branch_manager", "cashier", "kitchen_staff",
@@ -21,18 +24,115 @@ business_role = sa.Enum(
 )
 
 
+def _ensure_legacy_schema(bind) -> None:
+    """Create legacy tables only when absent, allowing fresh installs and existing DBs."""
+    for enum_type in (user_role, order_status, payment_status, payment_provider, business_type, business_role):
+        enum_type.create(bind, checkfirst=True)
+
+    if not sa.inspect(bind).has_table("users"):
+        op.create_table(
+            "users",
+            sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
+            sa.Column("email", sa.String(255), nullable=False),
+            sa.Column("password_hash", sa.String(255), nullable=False),
+            sa.Column("role", user_role, nullable=False),
+            sa.Column("is_active", sa.Boolean(), nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.UniqueConstraint("email", name="uq_users_email"),
+        )
+        op.create_index("ix_users_email", "users", ["email"], unique=True)
+
+    if not sa.inspect(bind).has_table("stores"):
+        op.create_table(
+            "stores",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("name", sa.String(255), nullable=False),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("owner_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("location", sa.String(255), nullable=True),
+            sa.Column("is_active", sa.Boolean(), nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        )
+        op.create_index("ix_stores_owner_id", "stores", ["owner_id"])
+
+    if not sa.inspect(bind).has_table("products"):
+        op.create_table(
+            "products",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("store_id", sa.Integer(), sa.ForeignKey("stores.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("name", sa.String(255), nullable=False),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("price", sa.Numeric(10, 2), nullable=False),
+            sa.Column("is_available", sa.Boolean(), nullable=False),
+            sa.Column("image_url", sa.String(500), nullable=True),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.CheckConstraint("price >= 0", name="ck_products_price_non_negative"),
+        )
+        op.create_index("ix_products_store_id", "products", ["store_id"])
+
+    if not sa.inspect(bind).has_table("orders"):
+        op.create_table(
+            "orders",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("store_id", sa.Integer(), sa.ForeignKey("stores.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("total_amount", sa.Numeric(10, 2), nullable=False),
+            sa.Column("status", order_status, nullable=False),
+            sa.Column("payment_reference", sa.String(255), nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.CheckConstraint("total_amount >= 0", name="ck_orders_total_amount_non_negative"),
+            sa.UniqueConstraint("payment_reference", name="uq_orders_payment_reference"),
+        )
+        op.create_index("ix_orders_user_id", "orders", ["user_id"])
+        op.create_index("ix_orders_store_id", "orders", ["store_id"])
+        op.create_index("ix_orders_payment_reference", "orders", ["payment_reference"], unique=True)
+
+    if not sa.inspect(bind).has_table("order_items"):
+        op.create_table(
+            "order_items",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("order_id", sa.Integer(), sa.ForeignKey("orders.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("product_id", sa.Integer(), sa.ForeignKey("products.id", ondelete="RESTRICT"), nullable=False),
+            sa.Column("quantity", sa.Integer(), nullable=False),
+            sa.Column("price", sa.Numeric(10, 2), nullable=False),
+            sa.CheckConstraint("quantity > 0", name="ck_order_items_quantity_positive"),
+        )
+        op.create_index("ix_order_items_order_id", "order_items", ["order_id"])
+        op.create_index("ix_order_items_product_id", "order_items", ["product_id"])
+
+    if not sa.inspect(bind).has_table("payments"):
+        op.create_table(
+            "payments",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("order_id", sa.Integer(), sa.ForeignKey("orders.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("reference", sa.String(255), nullable=False),
+            sa.Column("status", payment_status, nullable=False),
+            sa.Column("amount", sa.Numeric(10, 2), nullable=False),
+            sa.Column("provider", payment_provider, nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.CheckConstraint("amount > 0", name="ck_payments_amount_positive"),
+            sa.UniqueConstraint("reference", name="uq_payments_reference"),
+        )
+        op.create_index("ix_payments_order_id", "payments", ["order_id"])
+        op.create_index("ix_payments_reference", "payments", ["reference"], unique=True)
+
+    if not sa.inspect(bind).has_table("notification_tokens"):
+        op.create_table(
+            "notification_tokens",
+            sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+            sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("token", sa.String(1024), nullable=False),
+            sa.Column("device_type", sa.String(64), nullable=True),
+            sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+            sa.UniqueConstraint("token", name="uq_notification_tokens_token"),
+        )
+        op.create_index("ix_notification_tokens_user_id", "notification_tokens", ["user_id"])
+        op.create_index("ix_notification_tokens_token", "notification_tokens", ["token"], unique=True)
+
+
 def upgrade() -> None:
     bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    if not inspector.has_table("users"):
-        raise RuntimeError(
-            "Qless Phase 1 requires the existing users table. The repository's original "
-            "Alembic baseline is empty; initialize the legacy schema or stamp a verified "
-            "existing schema before applying this migration. Do not stamp an empty database."
-        )
-
-    business_type.create(bind, checkfirst=True)
-    business_role.create(bind, checkfirst=True)
+    _ensure_legacy_schema(bind)
 
     op.create_table(
         "businesses",
@@ -112,6 +212,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Remove only the Qless Phase 1 tables. Keep the legacy baseline tables intact.
     op.drop_index("ix_branch_qr_codes_token", table_name="branch_qr_codes")
     op.drop_index("ix_branch_qr_codes_branch_id", table_name="branch_qr_codes")
     op.drop_table("branch_qr_codes")
