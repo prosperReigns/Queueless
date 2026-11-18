@@ -212,10 +212,13 @@ def initialize_paystack_payment(
         response = _provider_request("POST", "transaction/initialize", payload=payload)
     except ValueError:
         db.commit()
+        # A timeout may occur after Paystack has created the transaction.
+        schedule_payment_verification_fallback(payment.reference)
         raise
     data = response["data"]
     if not data.get("authorization_url") or not data.get("access_code") or data.get("reference") != payment.reference:
         db.commit()
+        schedule_payment_verification_fallback(payment.reference)
         raise ValueError("Paystack returned an invalid initialization response.")
     payment.authorization_url = data["authorization_url"]
     payment.access_code = data["access_code"]
