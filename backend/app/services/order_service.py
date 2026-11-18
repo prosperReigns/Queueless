@@ -62,8 +62,9 @@ _ACTOR_ALLOWED_TRANSITIONS: Dict[OrderStatusTransitionActor, Dict[OrderStatus, S
 def emit_order_status_side_effects(order: Order, *, notification_event: Optional[str] = None) -> None:
     """Emit notification and websocket side effects for an order status change."""
     event = notification_event or f"order_status_{order.status.value}"
-    queue_order_notification(order.id, event)
-    publish_customer_status_update(order.user_id, order)
+    if order.user_id is not None:
+        queue_order_notification(order.id, event)
+        publish_customer_status_update(order.user_id, order)
 
 
 def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
