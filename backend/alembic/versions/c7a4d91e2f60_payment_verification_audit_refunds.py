@@ -6,13 +6,14 @@ Revises: b2e6c19a7d41
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision: str = "c7a4d91e2f60"
 down_revision: Union[str, None] = "b2e6c19a7d41"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-payment_provider = sa.Enum("PAYSTACK", name="payment_provider")
+payment_provider = postgresql.ENUM("PAYSTACK", name="payment_provider", create_type=False)
 
 def upgrade() -> None:
     op.add_column("payments", sa.Column("currency", sa.String(3), nullable=False, server_default="NGN"))
