@@ -15,7 +15,7 @@ from app.core.rate_limiter import limiter
 from app.models.business_membership import BusinessMembership, BusinessRole
 from app.models.branch import Branch
 from app.models.order import Order
-from app.models.payment import Payment
+from app.models.payment import Payment, PaymentRefund
 from app.models.store import Store
 from app.models.user import User, UserRole
 from app.schemas.payment import (
@@ -24,7 +24,7 @@ from app.schemas.payment import (
 )
 from app.services.payment_service import (
     handle_paystack_webhook_event, initialize_paystack_payment,
-    initiate_paystack_refund, verify_paystack_webhook_signature,
+    initiate_paystack_refund, reconcile_paystack_refund, verify_paystack_webhook_signature,
     verify_payment_and_reconcile,
 )
 
@@ -87,9 +87,12 @@ def _authorize_refund(db: Session, user: User, payment: Payment) -> None:
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found.")
     if order.branch_id is not None:
+        branch = db.get(Branch, order.branch_id)
+        if branch is None:
+            raise HTTPException(status_code=404, detail="Branch not found.")
         membership = db.scalar(select(BusinessMembership.id).where(
             BusinessMembership.user_id == user.id,
-            BusinessMembership.business_id == db.get(Branch, order.branch_id).business_id,
+            BusinessMembership.business_id == branch.business_id,
             BusinessMembership.is_active.is_(True),
             BusinessMembership.role.in_([BusinessRole.OWNER, BusinessRole.FRANCHISE_ADMIN, BusinessRole.BRANCH_MANAGER]),
             (BusinessMembership.branch_id.is_(None)) | (BusinessMembership.branch_id == order.branch_id),
@@ -120,7 +123,30 @@ def create_refund(
             initiated_by=str(current_user.id),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        code = 502 if "outcome is uncertain" in str(exc) else 400
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+    return PaymentRefundResponse.model_validate(refund)
+
+@router.post("/refunds/{refund_reference}/reconcile", response_model=PaymentRefundResponse)
+@limiter.limit(settings.RATE_LIMIT_PAYMENTS)
+def reconcile_refund(
+    request: Request, refund_reference: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> PaymentRefundResponse:
+    refund = db.scalar(select(PaymentRefund).where(
+        __import__("app.models.payment", fromlist=["PaymentRefund"]).PaymentRefund.reference == refund_reference
+    ))
+    if refund is None:
+        raise HTTPException(status_code=404, detail="Refund not found.")
+    payment = db.get(Payment, refund.payment_id)
+    if payment is None:
+        raise HTTPException(status_code=404, detail="Payment not found.")
+    _authorize_refund(db, current_user, payment)
+    try:
+        refund = reconcile_paystack_refund(db, refund_reference)
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return PaymentRefundResponse.model_validate(refund)
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)
