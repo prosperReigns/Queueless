@@ -89,7 +89,7 @@ def initialize_paystack_payment(
             extra={
                 "event": "payment_initialization_failed",
                 "order_id": order_id,
-                "user_id": str(user.id),
+                "user_id": str(user.id) if user is not None else None,
                 "order_status": order.status.value,
                 "reason": "order_not_pending",
             },
