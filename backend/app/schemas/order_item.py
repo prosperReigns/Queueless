@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import uuid
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,7 +21,9 @@ class OrderItemResponse(BaseModel):
 
     id: int = Field(gt=0)
     order_id: int = Field(gt=0)
-    product_id: int = Field(gt=0)
+    product_id: Optional[int] = Field(default=None, gt=0)
+    menu_item_id: Optional[uuid.UUID] = None
+    item_name: Optional[str] = None
     quantity: int = Field(gt=0)
     price: Decimal = Field(gt=Decimal("0"), max_digits=10, decimal_places=2)
 
