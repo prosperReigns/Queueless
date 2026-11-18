@@ -38,7 +38,7 @@ export function KitchenDashboardPage() {
       <p className="muted-text">{ticket.order_source ?? 'Order'} · {ticket.fulfillment_method ?? 'Collection'} · {ticket.customer_name ?? 'Customer'}</p>
       <ul>{ticket.items.map((item,i) => <li key={i}>{item.quantity} × {item.item_name}</li>)}</ul>
       <p className="muted-text">Received: {ticket.created_at ? new Date(ticket.created_at).toLocaleTimeString() : '—'}</p>
-      {NEXT[ticket.status] && <button disabled={advance.isPending} onClick={() => advance.mutate({id:ticket.ticket_id,status:NEXT[ticket.status]!})}>{ticket.status === 'NEW' ? 'Accept order' : ticket.status === 'ACCEPTED' ? 'Start preparing' : 'Mark ready'}</button>}
+      {NEXT[ticket.status] && <button disabled={advance.isPending} onClick={() => advance.mutate({id:ticket.ticket_id,status:NEXT[ticket.status]!})}>{ticket.status === 'new' ? 'Accept order' : ticket.status === 'accepted' ? 'Start preparing' : 'Mark ready'}</button>}
     </article>)}</div>
     {advance.isError && <p className="inline-alert">Could not update ticket. Refresh and try again.</p>}
   </section>
