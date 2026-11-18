@@ -204,7 +204,7 @@ Implemented on `feature/qless-phase-6` (draft PR pending):
 Implemented on `feature/qless-phase-6` (draft PR #53, based on Phase 5):
 
 - **Customer:** added business-slug branch discovery, branch menu browsing, remote preorder and permanent branch-QR ordering at `/q/{token}`. Checkout creates orders through the unified Phase 2 endpoint and starts Paystack checkout. Guest checkout tokens are kept in session storage for the payment callback and tracking page.
-- **Customer tracking:** added `/track/{order_id}`, guest-token access, Paystack callback verification, kitchen/fulfillment progress and one-time collection QR/PIN issuance after the ticket reaches READY. Legacy order details now link to tracking.
+- **Customer tracking/history:** added `/track/{order_id}`, guest-token access, Paystack callback verification, kitchen/fulfillment progress, one-time collection QR/PIN issuance after the ticket reaches READY, and a separate authenticated branch-order history endpoint/page. Legacy order details now link to tracking.
 - **Merchant:** added business creation (independent/franchise), branch creation, staff membership assignment/suspension, menu category/item creation, branch item availability controls and permanent branch QR menu URL display.
 - **Kitchen:** added a branch-selectable kitchen display with polling and explicit server-enforced ticket transitions.
 - **Fulfillment:** added a branch-selectable collection desk for QR/PIN redemption and external-rider handoff details.
