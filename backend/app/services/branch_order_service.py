@@ -14,6 +14,9 @@ from app.models.order_item import OrderItem
 from app.tasks.orders import schedule_order_expiry
 
 def create_branch_order(db: Session, payload, user_id=None):
+    if payload.scheduled_for is not None:
+        if payload.scheduled_for.tzinfo is None or payload.scheduled_for <= datetime.now(timezone.utc):
+            raise ValueError("scheduled_for must be a future timezone-aware datetime.")
     if payload.source == "onsite_qr":
         if payload.branch_qr_token is None:
             raise ValueError("Onsite QR orders require a branch QR code.")
