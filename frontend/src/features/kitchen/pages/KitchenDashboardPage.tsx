@@ -21,7 +21,7 @@ export function KitchenDashboardPage() {
     mutationFn: ({ id, status }: { id: number; status: KitchenTicket['status'] }) => updateKitchenTicketRequest(id, status),
     onSuccess: () => client.invalidateQueries({ queryKey: ['qless-kitchen', branchId] }),
   })
-  const counts = useMemo(() => (queue.data ?? []).reduce((a, t) => { a[t.status] += 1; return a }, { NEW: 0, ACCEPTED: 0, PREPARING: 0, READY: 0 }), [queue.data])
+  const counts = useMemo(() => (queue.data ?? []).reduce((a, t) => { a[t.status] += 1; return a }, { new: 0, accepted: 0, preparing: 0, ready: 0 }), [queue.data])
   const error = axios.isAxiosError<{detail?:string}>(queue.error) ? queue.error.response?.data?.detail : 'Unable to load kitchen queue.'
   return <section className="page-container qless-ops-page">
     <header className="page-header"><h1>Kitchen display</h1><p>Live branch queue. Ticket transitions are validated by the server.</p></header>
