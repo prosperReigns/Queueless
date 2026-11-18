@@ -64,16 +64,15 @@ def verify_payment(
     order = db.get(Order, payment.order_id)
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found.")
-    if current_user is not None:
-        if current_user.role != UserRole.ADMIN and order.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Payment access denied.")
+    if current_user is not None and (current_user.role == UserRole.ADMIN or order.user_id == current_user.id):
+        pass
     else:
         supplied_hash = hashlib.sha256((payload.guest_access_token or "").encode()).hexdigest()
         if (order.user_id is not None or not order.guest_access_token_hash
             or not order.guest_access_token_expires_at
             or order.guest_access_token_expires_at <= datetime.now(timezone.utc)
             or not secrets.compare_digest(supplied_hash, order.guest_access_token_hash)):
-            raise HTTPException(status_code=401, detail="Valid guest checkout token required.")
+            raise HTTPException(status_code=401 if current_user is None else 403, detail="Valid order owner credentials required.")
     try:
         verified_payment, provider_status = verify_payment_and_reconcile(db, payload.reference)
     except ValueError as exc:
@@ -135,7 +134,7 @@ def reconcile_refund(
     current_user: User = Depends(get_current_active_user),
 ) -> PaymentRefundResponse:
     refund = db.scalar(select(PaymentRefund).where(
-        __import__("app.models.payment", fromlist=["PaymentRefund"]).PaymentRefund.reference == refund_reference
+        PaymentRefund.reference == refund_reference
     ))
     if refund is None:
         raise HTTPException(status_code=404, detail="Refund not found.")
