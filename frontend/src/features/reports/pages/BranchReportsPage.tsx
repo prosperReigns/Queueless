@@ -24,7 +24,7 @@ export function BranchReportsPage() {
     {branchId&&!orders.isLoading&&!orders.isError&&<>
       <div className="qless-metric-grid">
         <article className="store-card"><span>Orders</span><strong>{rows.length}</strong></article>
-        <article className="store-card"><span>Gross order value</span><strong>₦{total.toLocaleString()}</strong></article>
+        <article className="store-card"><span>Total value of orders</span><strong>₦{total.toLocaleString()}</strong></article>
         <article className="store-card"><span>Active orders</span><strong>{active.length}</strong></article>
         <article className="store-card"><span>Paid / beyond payment</span><strong>{paidOrFurther}</strong></article>
         <article className="store-card"><span>Cancelled</span><strong>{cancelled}</strong></article>
