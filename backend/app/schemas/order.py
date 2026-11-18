@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
