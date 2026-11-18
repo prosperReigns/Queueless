@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         description="Paystack secret key used for transaction initialization and webhook verification",
     )
     PAYSTACK_BASE_URL: str = "https://api.paystack.co"
+    PAYMENT_CURRENCY: str = Field(default="NGN", pattern=r"^[A-Z]{3}$", description="ISO 4217 currency used for new Paystack charges.")
     PAYMENT_VERIFICATION_FALLBACK_DELAY_SECONDS: int = Field(
         default=300,
         ge=30,
