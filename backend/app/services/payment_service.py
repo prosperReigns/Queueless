@@ -7,6 +7,7 @@ import secrets
 import hmac
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 import httpx
@@ -78,7 +79,7 @@ def initialize_paystack_payment(
         payer_email = user.email
     else:
         supplied_hash = hashlib.sha256((guest_access_token or "").encode()).hexdigest()
-        if order.user_id is not None or not order.guest_access_token_hash or not secrets.compare_digest(supplied_hash, order.guest_access_token_hash):
+        if (order.user_id is not None or not order.guest_access_token_hash or not order.guest_access_token_expires_at or order.guest_access_token_expires_at <= datetime.now(timezone.utc) or not secrets.compare_digest(supplied_hash, order.guest_access_token_hash)):
             raise ValueError("A valid guest checkout token is required.")
         payer_email = order.customer_email
     if not payer_email:
