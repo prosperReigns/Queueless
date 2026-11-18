@@ -7,7 +7,7 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import quote
 
@@ -69,6 +69,8 @@ def _provider_request(method: str, path: str, *, payload: Optional[Dict[str, Any
         body = response.json()
     except ValueError as exc:
         raise ValueError("Paystack returned an invalid response.") from exc
+    if not isinstance(body, dict):
+        raise ValueError("Paystack returned an invalid response object.")
     if response.status_code >= 500:
         raise ValueError("Paystack is temporarily unavailable. Please retry verification.")
     if response.status_code >= 400 or body.get("status") is not True:
@@ -296,7 +298,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
                     try:
                         event_amount = Decimal(str(event_amount_value)) / Decimal("100")
                         candidates = [candidate for candidate in candidates if Decimal(candidate.amount) == event_amount]
-                    except Exception:
+                    except (TypeError, ValueError, InvalidOperation):
                         candidates = []
                 if len(candidates) == 1:
                     refund = candidates[0]
@@ -319,7 +321,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
         if event_amount_value is not None:
             try:
                 event_amount = int(Decimal(str(event_amount_value)))
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, InvalidOperation):
                 event_amount = -1
             expected_refund_amount = int((Decimal(refund.amount) * 100).quantize(Decimal("1")))
             if event_amount != expected_refund_amount or str(payload.get("currency", refund.currency)).upper() != refund.currency:
