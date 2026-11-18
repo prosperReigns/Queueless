@@ -154,6 +154,16 @@ def test_e2e_customer_order_payment_and_merchant_completion_flow(client):
     assert duplicate_webhook_resp.status_code == 200
     assert duplicate_webhook_resp.json()["reason"] == "duplicate_event"
 
+    verify_response = client.post(
+        "/api/v1/payments/verify",
+        json={"reference": order["payment_reference"]},
+        headers=_auth_headers(customer_tokens["access_token"]),
+    )
+    assert verify_response.status_code == 200, verify_response.text
+    assert verify_response.json()["provider_status"] == "success"
+    assert verify_response.json()["payment"]["status"] == "success"
+    assert verify_response.json()["order_status"] == "paid"
+
     customer_order_after_webhook = client.get(
         f"/api/v1/orders/{order['id']}",
         headers=_auth_headers(customer_tokens["access_token"]),
