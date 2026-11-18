@@ -212,6 +212,6 @@ export interface CustomerBranchOrder {
   items: Array<{item_name:string;quantity:number;unit_price:string}>
 }
 export async function listMyBranchOrdersRequest() {
-  const { data } = await apiClient.get<CustomerBranchOrder[]>('/orders/branch/mine')
+  const { data } = await apiClient.get<CustomerBranchOrder[]>('/customers/me/branch-orders')
   return data
 }
