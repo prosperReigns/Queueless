@@ -7,10 +7,10 @@ from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_roles
+from app.api.deps import get_db, get_optional_current_user
 from app.core.config import get_settings
 from app.core.rate_limiter import limiter
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.schemas.payment import PaymentInitiateRequest, PaymentInitiateResponse
 from app.services.payment_service import (
     handle_paystack_webhook_event,
@@ -28,7 +28,7 @@ def initiate_payment(
     request: Request,
     payload: PaymentInitiateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    current_user: User | None = Depends(get_optional_current_user),
 ) -> PaymentInitiateResponse:
     """Initialize a Paystack transaction for an order."""
     try:
@@ -36,6 +36,7 @@ def initiate_payment(
             db,
             order_id=payload.order_id,
             user=current_user,
+            guest_access_token=payload.guest_access_token,
             callback_url=payload.callback_url,
         )
     except ValueError as exc:
