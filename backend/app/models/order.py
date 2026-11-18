@@ -5,7 +5,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import List, Optional
 import uuid
-from sqlalchemy import CheckConstraint, DateTime, Enum as SQLEnum, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import CheckConstraint, DateTime, Enum as SQLEnum, ForeignKey, Index, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
@@ -28,7 +28,7 @@ class FulfillmentMethod(str, Enum):
 
 class Order(Base):
     __tablename__ = "orders"
-    __table_args__ = (CheckConstraint("total_amount >= 0", name="ck_orders_total_amount_non_negative"),)
+    __table_args__ = (CheckConstraint("total_amount >= 0", name="ck_orders_total_amount_non_negative"), Index("uq_orders_guest_access_token_hash", "guest_access_token_hash", unique=True))
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     store_id: Mapped[Optional[int]] = mapped_column(ForeignKey("stores.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -39,7 +39,7 @@ class Order(Base):
     customer_name: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
     customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     customer_phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
-    guest_access_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
+    guest_access_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[OrderStatus] = mapped_column(SQLEnum(OrderStatus, name="order_status"), nullable=False, default=OrderStatus.PENDING)
     payment_reference: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
