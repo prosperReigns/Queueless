@@ -65,6 +65,7 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(3), nullable=False, server_default="NGN"),
         sa.Column("status", sa.String(24), nullable=False, server_default="pending"),
         sa.Column("reason", sa.String(500), nullable=True),
+        sa.Column("last_error", sa.String(500), nullable=True),
         sa.Column("initiated_by", sa.String(36), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
