@@ -77,7 +77,7 @@ class PaymentRefund(Base):
     payment_id: Mapped[int] = mapped_column(ForeignKey("payments.id", ondelete="CASCADE"), nullable=False, index=True)
     reference: Mapped[str] = mapped_column(String(64), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
-    provider_refund_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    provider_refund_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="NGN")
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
