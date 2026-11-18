@@ -20,7 +20,8 @@ class BranchOrderItemCreate(BaseModel):
     quantity: int = Field(gt=0, le=50)
 
 class BranchOrderCreate(BaseModel):
-    branch_qr_token: uuid.UUID
+    branch_id: Optional[uuid.UUID] = None
+    branch_qr_token: Optional[uuid.UUID] = None
     source: OrderSource
     fulfillment_method: FulfillmentMethod
     scheduled_for: Optional[datetime] = None
