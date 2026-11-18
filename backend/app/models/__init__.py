@@ -13,4 +13,6 @@ from app.models.branch_qr_code import BranchQRCode
 from app.models.menu import MenuCategory, MenuItem, BranchMenuItem
 from app.models.kitchen import KitchenTicket, KitchenTicketStatus, KitchenEvent
 
-__all__ = ["User", "UserRole", "Store", "Product", "Order", "OrderStatus", "OrderSource", "FulfillmentMethod", "OrderItem", "Payment", "PaymentStatus", "PaymentProvider", "PaymentEvent", "PaymentStatusHistory", "PaymentRefund", "NotificationToken", "Business", "BusinessType", "Branch", "BusinessMembership", "BusinessRole", "BranchQRCode", "MenuCategory", "MenuItem", "BranchMenuItem", "KitchenTicket", "KitchenTicketStatus", "KitchenEvent"]
+__all__ = ["User", "UserRole", "Store", "Product", "Order", "OrderStatus", "OrderSource", "FulfillmentMethod", "OrderItem", "Payment", "PaymentStatus", "PaymentProvider", "PaymentEvent", "PaymentStatusHistory", "PaymentRefund", "NotificationToken", "Business", "BusinessType", "Branch", "BusinessMembership", "BusinessRole", "BranchQRCode", "MenuCategory", "MenuItem", "BranchMenuItem", "KitchenTicket", "KitchenTicketStatus", "KitchenEvent", "OrderFulfillment", "CollectionCredential", "FulfillmentEvent", "FulfillmentStatus", "CollectionCredentialStatus"]
+
+from app.models.fulfillment import OrderFulfillment, CollectionCredential, FulfillmentEvent, FulfillmentStatus, CollectionCredentialStatus
