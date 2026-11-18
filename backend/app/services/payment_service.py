@@ -271,7 +271,7 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
         event_row.processed_at = datetime.now(timezone.utc)
         db.commit()
         return True, "refund_updated"
-    event_key = hashlib.sha256(raw_body).hexdigest()
+    event_key = hashlib.sha256(json.dumps(event, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
     existing = db.scalar(select(PaymentEvent).where(
         PaymentEvent.provider == PaymentProvider.PAYSTACK,
         PaymentEvent.event_key == event_key,
