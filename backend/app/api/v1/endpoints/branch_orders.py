@@ -12,7 +12,7 @@ from app.models.user import User, UserRole
 from app.models.business_membership import BusinessRole
 from app.models.branch import Branch
 from app.models.order import Order, OrderStatus
-from app.services.business_service import can_access_branch, get_membership
+from app.services.business_service import get_membership
 from app.services.branch_order_service import create_branch_order
 from app.schemas.branch_order import BranchOrderCreate
 
