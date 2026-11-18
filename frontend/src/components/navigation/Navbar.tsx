@@ -13,6 +13,7 @@ export function Navbar() {
           Queue-less
         </Link>
         <div className="app-navbar__actions">
+          <Link to="/discover" className="button-link">Find restaurants</Link>
           {user ? (
             <>
               {user.role === 'CUSTOMER' ? (
