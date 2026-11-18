@@ -199,3 +199,19 @@ export async function getBranchQrRequest(branchId: string) {
   const { data } = await apiClient.get<{branch_id:string;token:string;menu_url:string}>(`/branches/${branchId}/qr`)
   return data
 }
+
+export interface CustomerBranchOrder {
+  id: number
+  branch_id: string
+  order_source: string | null
+  fulfillment_method: string | null
+  customer_name: string | null
+  total_amount: string
+  status: string
+  created_at: string
+  items: Array<{item_name:string;quantity:number;unit_price:string}>
+}
+export async function listMyBranchOrdersRequest() {
+  const { data } = await apiClient.get<CustomerBranchOrder[]>('/orders/branch/mine')
+  return data
+}
