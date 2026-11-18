@@ -237,6 +237,37 @@ def handle_paystack_webhook_event(db: Session, raw_body: bytes) -> Tuple[bool, s
     event_type = str(event.get("event") or "unknown")[:100]
     payload = event.get("data") or {}
     reference = payload.get("reference") if isinstance(payload, dict) else None
+    if event_type in {"refund.processed", "refund.failed"} and isinstance(payload, dict):
+        event_key = hashlib.sha256(raw_body).hexdigest()
+        event_row = db.scalar(select(PaymentEvent).where(
+            PaymentEvent.provider == PaymentProvider.PAYSTACK,
+            PaymentEvent.event_key == event_key,
+        ).with_for_update())
+        if event_row is not None and event_row.processing_status in {"processed", "ignored"}:
+            return True, "duplicate_event"
+        refund_reference = payload.get("reference")
+        refund = db.scalar(select(PaymentRefund).where(PaymentRefund.reference == refund_reference).with_for_update()) if refund_reference else None
+        if event_row is None:
+            event_row = PaymentEvent(provider=PaymentProvider.PAYSTACK, event_key=event_key, event_type=event_type, payment_reference=None, payload_hash=event_key, processing_status="received")
+            db.add(event_row)
+        if refund is None:
+            event_row.processing_status = "ignored"
+            event_row.error_message = "Refund reference not found."
+            event_row.processed_at = datetime.now(timezone.utc)
+            db.commit()
+            return True, "refund_not_found"
+        if event_type == "refund.processed" and refund.status != "processed":
+            refund.status = "processed"
+            refund.processed_at = datetime.now(timezone.utc)
+            payment = db.scalar(select(Payment).where(Payment.id == refund.payment_id).with_for_update())
+            if payment is not None:
+                payment.amount_refunded = (Decimal(payment.amount_refunded or 0) + Decimal(refund.amount)).quantize(Decimal("0.01"))
+        elif event_type == "refund.failed":
+            refund.status = "failed"
+        event_row.processing_status = "processed"
+        event_row.processed_at = datetime.now(timezone.utc)
+        db.commit()
+        return True, "refund_updated"
     event_key = hashlib.sha256(raw_body).hexdigest()
     existing = db.scalar(select(PaymentEvent).where(
         PaymentEvent.provider == PaymentProvider.PAYSTACK,
