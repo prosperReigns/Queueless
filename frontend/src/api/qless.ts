@@ -153,3 +153,44 @@ export async function updateBranchMenuItemRequest(branchId: string, itemId: stri
   const { data } = await apiClient.patch(`/branches/${branchId}/menu/items/${itemId}`, payload)
   return data
 }
+
+export interface PublicBranchMenu {
+  business: { id: string; name: string; slug: string }
+  branch: { id: string; name: string; city?: string | null; state?: string | null }
+  categories: MenuCategoryOption[]
+}
+export async function listPublicBusinessBranchesRequest(slug: string) {
+  const { data } = await apiClient.get<Array<{id:string;name:string;city?:string|null;state?:string|null}>>(`/public/businesses/${encodeURIComponent(slug)}/branches`)
+  return data
+}
+export async function getPublicBranchMenuByIdRequest(branchId: string) {
+  const { data } = await apiClient.get<PublicBranchMenu>(`/public/branches/${branchId}/menu`)
+  return data
+}
+export async function getQrBranchMenuRequest(token: string) {
+  const { data } = await apiClient.get<PublicBranchMenu>(`/public/branches/resolve/${token}/menu`)
+  return data
+}
+export async function createBranchOrderRequest(payload: {
+  branch_id?: string
+  branch_qr_token?: string
+  source: 'preorder' | 'onsite_qr'
+  fulfillment_method: 'self_collection' | 'external_rider'
+  customer_name: string
+  customer_email: string
+  customer_phone: string
+  items: Array<{ menu_item_id: string; quantity: number }>
+}) {
+  const { data } = await apiClient.post<{id:number;guest_access_token?:string|null}>('/orders/branch', payload)
+  return data
+}
+export async function initiateBranchPaymentRequest(orderId: number, callbackUrl: string, guestToken?: string) {
+  const { data } = await apiClient.post<{authorization_url:string;reference:string}>('/payments/initiate', {
+    order_id: orderId, callback_url: callbackUrl, guest_access_token: guestToken,
+  })
+  return data
+}
+export async function verifyBranchPaymentRequest(reference: string, guestToken?: string) {
+  const { data } = await apiClient.post('/payments/verify', { reference, guest_access_token: guestToken })
+  return data
+}
