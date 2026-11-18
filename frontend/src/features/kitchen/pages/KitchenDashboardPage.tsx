@@ -29,7 +29,7 @@ export function KitchenDashboardPage() {
       <label>Business<select className="form-input" value={businessId} onChange={e => {setBusinessId(e.target.value);setBranchId('')}}><option value="">Select business</option>{(businesses.data ?? []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
       <label>Branch<select className="form-input" value={branchId} onChange={e => setBranchId(e.target.value)} disabled={!businessId}><option value="">Select branch</option>{(branches.data ?? []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
     </div>
-    {branchId && <div className="qless-metric-grid">{(['NEW','ACCEPTED','PREPARING','READY'] as const).map(s => <article className="store-card" key={s}><span>{LABEL[s]}</span><strong>{counts[s]}</strong></article>)}</div>}
+    {branchId && <div className="qless-metric-grid">{(['new','accepted','preparing','ready'] as const).map(s => <article className="store-card" key={s}><span>{LABEL[s]}</span><strong>{counts[s]}</strong></article>)}</div>}
     {queue.isLoading && <p>Loading kitchen tickets…</p>}
     {queue.isError && <div className="inline-alert"><span>{error}</span><button onClick={() => void queue.refetch()}>Retry</button></div>}
     {branchId && !queue.isLoading && !queue.isError && (queue.data?.length ?? 0) === 0 && <p className="muted-text">No paid orders are waiting in this kitchen.</p>}
