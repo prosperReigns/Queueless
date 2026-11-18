@@ -59,7 +59,10 @@ def _provider_request(method: str, path: str, *, payload: Optional[Dict[str, Any
     settings = get_settings()
     url = f"{settings.PAYSTACK_BASE_URL.rstrip('/')}/{path.lstrip('/')}"
     try:
-        response = httpx.request(method, url, headers=_headers(), json=payload, params=params, timeout=PAYSTACK_TIMEOUT_SECONDS)
+        if method.upper() == "GET":
+            response = httpx.get(url, headers=_headers(), params=params, timeout=PAYSTACK_TIMEOUT_SECONDS)
+        else:
+            response = httpx.post(url, headers=_headers(), json=payload, params=params, timeout=PAYSTACK_TIMEOUT_SECONDS)
     except httpx.HTTPError as exc:
         raise ValueError("Unable to contact Paystack. The transaction status is not yet confirmed.") from exc
     try:
