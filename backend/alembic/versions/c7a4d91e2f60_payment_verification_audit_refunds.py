@@ -60,6 +60,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("payment_id", sa.Integer(), sa.ForeignKey("payments.id", ondelete="CASCADE"), nullable=False),
         sa.Column("reference", sa.String(64), nullable=False),
+        sa.Column("idempotency_key", sa.String(64), nullable=False),
         sa.Column("provider_refund_id", sa.String(64), nullable=True),
         sa.Column("amount", sa.Numeric(10, 2), nullable=False),
         sa.Column("currency", sa.String(3), nullable=False, server_default="NGN"),
@@ -71,6 +72,7 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("processed_at", sa.DateTime(timezone=True), nullable=True),
         sa.UniqueConstraint("reference", name="uq_payment_refunds_reference"),
+        sa.UniqueConstraint("idempotency_key", name="uq_payment_refunds_idempotency_key"),
         sa.CheckConstraint("amount > 0", name="ck_payment_refunds_amount_positive"),
     )
     op.create_index("ix_payment_refunds_payment_id", "payment_refunds", ["payment_id"])
