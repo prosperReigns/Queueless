@@ -121,7 +121,7 @@ Implemented on `feature/qless-srs-alignment`:
 
 ## Phase 2 implementation status
 
-Implemented on `feature/qless-srs-alignment`:
+Implemented on `feature/qless-phase-2` (draft PR #49):
 
 - Added business-level menu categories and menu items.
 - Added branch-level menu availability and optional price overrides; the branch public menu resolves the permanent branch QR.
