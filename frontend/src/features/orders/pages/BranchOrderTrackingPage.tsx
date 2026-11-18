@@ -23,7 +23,7 @@ export function BranchOrderTrackingPage() {
     {data&&<article className="store-card qless-tracking-card">
       <h2>Order #{data.order_id}</h2>
       <dl><dt>Payment / order status</dt><dd>{data.order_status}</dd><dt>Kitchen</dt><dd>{data.kitchen_status??'Awaiting payment confirmation'}</dd><dt>Fulfillment</dt><dd>{data.fulfillment_status??'Not yet available'}</dd><dt>Method</dt><dd>{data.fulfillment_method??'—'}</dd><dt>Scheduled</dt><dd>{data.scheduled_for?new Date(data.scheduled_for).toLocaleString():'As soon as possible'}</dd></dl>
-      <button disabled={credential.isPending||data.kitchen_status!=='READY'||data.fulfillment_status==='collected'||data.fulfillment_status==='rider_collected'} onClick={()=>credential.mutate()}>{credential.isPending?'Generating…':'Get collection QR and PIN'}</button>
+      <button disabled={credential.isPending||data.kitchen_status!=='ready'||data.fulfillment_status==='collected'||data.fulfillment_status==='rider_collected'} onClick={()=>credential.mutate()}>{credential.isPending?'Generating…':'Get collection QR and PIN'}</button>
       {credential.isError&&<p className="inline-alert">Collection credential is unavailable yet. It is issued only after the order is ready.</p>}
       {credential.data&&<div className="qless-credential"><h3>Show this once to collection staff</h3><strong className="qless-pin">{credential.data.pin}</strong><p>Expires: {new Date(credential.data.expires_at).toLocaleString()}</p><textarea className="form-input" readOnly value={credential.data.qr_payload}/><p className="muted-text">Keep this credential private. It is single-use and branch-specific.</p></div>}
     </article>}
