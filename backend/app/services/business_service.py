@@ -73,7 +73,9 @@ def get_membership(db: Session, user_id: uuid.UUID, business_id: uuid.UUID, bran
     )
     if branch_id is not None:
         stmt = stmt.where((BusinessMembership.branch_id == branch_id) | (BusinessMembership.branch_id.is_(None)))
-    return db.scalar(stmt.order_by(BusinessMembership.branch_id.asc().nulls_first()))
+        return db.scalar(stmt.order_by(BusinessMembership.branch_id.asc().nulls_first()))
+    stmt = stmt.where(BusinessMembership.branch_id.is_(None))
+    return db.scalar(stmt)
 
 def can_access_business(db: Session, user: User, business_id: uuid.UUID) -> bool:
     if user.role.value == "admin":
@@ -127,8 +129,13 @@ def create_membership(db: Session, business: Business, payload, actor_role: Busi
         branch = db.get(Branch, payload.branch_id)
         if branch is None or branch.business_id != business.id:
             raise ValueError("The selected branch does not belong to this business.")
-    existing = get_membership(db, payload.user_id, business.id, payload.branch_id)
-    if existing is not None:
+    duplicate_stmt = select(BusinessMembership.id).where(
+        BusinessMembership.user_id == payload.user_id,
+        BusinessMembership.business_id == business.id,
+        BusinessMembership.branch_id == payload.branch_id,
+        BusinessMembership.is_active.is_(True),
+    )
+    if db.scalar(duplicate_stmt) is not None:
         raise ValueError("This user already has an active membership at the selected scope.")
     membership = BusinessMembership(user_id=payload.user_id, business_id=business.id, branch_id=payload.branch_id, role=payload.role)
     db.add(membership)
