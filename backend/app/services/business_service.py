@@ -50,9 +50,12 @@ def list_user_businesses(db: Session, user: User) -> list[tuple[Business, Option
         select(Business, BusinessMembership.role)
         .join(BusinessMembership, BusinessMembership.business_id == Business.id)
         .where(BusinessMembership.user_id == user.id, BusinessMembership.is_active.is_(True), Business.is_active.is_(True))
-        .order_by(Business.created_at.desc())
+        .order_by(Business.created_at.desc(), BusinessMembership.branch_id.asc().nulls_first())
     ).all()
-    return [(row[0], row[1]) for row in rows]
+    unique_businesses: dict[uuid.UUID, tuple[Business, BusinessRole]] = {}
+    for business, role in rows:
+        unique_businesses.setdefault(business.id, (business, role))
+    return list(unique_businesses.values())
 
 def get_business(db: Session, business_id: uuid.UUID) -> Optional[Business]:
     return db.get(Business, business_id)
