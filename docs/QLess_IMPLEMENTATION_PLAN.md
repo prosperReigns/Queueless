@@ -138,7 +138,7 @@ Implemented on `feature/qless-phase-2` (draft PR #49):
 
 ## Phase 3 implementation status
 
-Implemented on `feature/qless-phase-3` (draft PR planned):
+Implemented on `feature/qless-phase-3` (draft PR #50):
 
 - Kept payment state separate from order fulfillment state. A payment can only mark an order paid after a server-side Paystack verification confirms reference, amount and currency.
 - Added an authenticated customer/guest `POST /payments/verify` endpoint. Guest token validation is shared with initialization and handles timezone-aware expiry safely.
@@ -146,8 +146,9 @@ Implemented on `feature/qless-phase-3` (draft PR planned):
 - The Celery fallback now calls the same provider verification/reconciliation service instead of trusting status alone.
 - Repeated payment initialization reuses persisted checkout authorization data when available.
 - Added payment status history, webhook event records and refund ledger models.
-- Added partial/full Paystack refund initiation with remaining-balance reservation, unique refund references, refund webhook updates and explicit reconciliation for uncertain outcomes.
+- Added partial/full Paystack refund initiation with remaining-balance reservation, unique refund references, required client idempotency keys, refund lifecycle webhook updates and explicit reconciliation for uncertain outcomes.
 - Added configurable `PAYMENT_CURRENCY` (default `NGN`), migration `c7a4d91e2f60`, payment API docs and verification invariant tests.
-- Updated the legacy order/payment end-to-end test to assert provider-verified success and duplicate webhook handling.
+- Updated the legacy order/payment end-to-end test to cover provider-verified success, duplicate payment webhooks, refund idempotency, refund reconciliation and duplicate refund webhooks.
+- Added a GitHub Actions workflow for backend compile checks and tests.
 
 **Verification still required:** no local test suite or PostgreSQL migration has been executed in this environment. Test the complete suite and migration on fresh and disposable-existing PostgreSQL databases. Paystack test-mode refund/webhook behavior must also be exercised before production.
